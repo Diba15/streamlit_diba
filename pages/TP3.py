@@ -84,3 +84,79 @@ halo = Image.open("./image/halo_dek.png")
 
 st.image(halo, "Example of how HALO DEK! apps work")
 
+st.subheader("Server.py")
+
+code_server = '''
+import socket
+import threading
+
+# Fungsi untuk menangani koneksi klien
+def handle_client(client_socket):
+    while True:
+        try:
+            # Menerima pesan dari klien
+            data = client_socket.recv(1024)
+            if not data:
+                break
+
+            # Menyebarkan pesan kepada semua klien yang terhubung
+            for client in clients:
+                if client != client_socket:
+                    client.send(data)
+        except:
+            break
+
+# Membuat socket server
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(("0.0.0.0", 8080))
+server.listen(5)
+
+print("Server HALO DEK! sedang berjalan...")
+
+# Daftar klien yang terhubung
+clients = []
+
+while True:
+    client_socket, addr = server.accept()
+    clients.append(client_socket)
+
+    # Menangani setiap klien di thread terpisah
+    client_handler = threading.Thread(target=handle_client, args=(client_socket,))
+    client_handler.start()
+'''
+
+st.code(code_server, language="python")
+
+code_client = '''
+import socket
+import threading
+
+# Fungsi untuk mengirim pesan
+def send_message():
+    while True:
+        message = input()
+        client.send(message.encode())
+
+# Membuat socket klien
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(("127.0.0.1", 8080))
+
+# Thread untuk mengirim pesan
+send_thread = threading.Thread(target=send_message)
+send_thread.start()
+
+while True:
+    try:
+        # Menerima pesan dari server
+        data = client.recv(1024)
+        if not data:
+            break
+        print(data.decode())
+    except:
+        break
+
+client.close()
+'''
+st.subheader("client.py")
+
+st.code(code_client, language="python")
