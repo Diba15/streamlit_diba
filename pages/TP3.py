@@ -74,7 +74,7 @@ st.write("UDP tidak memiliki pesan penutupan seperti TCP. Aplikasi dapat memilih
 
 st.header("Topik : Pemrograman Socket")
 
-st.write(" **HALO DEK!** merupakan sebuah aplikasi sederhana untuk keperluan chatting. Aplikasi **HALO DEK!** merupakan "
+st.write("**HALO DEK!** merupakan sebuah aplikasi sederhana untuk keperluan chatting. Aplikasi **HALO DEK!** merupakan "
          "aplikasi yang populer dan banyak digunakan untuk berkomunikasi. Aplikasi **HALO DEK!** memungkinkan pengguna "
          "untuk berkomunikasi secara langsung dengan mudah. Anda telah mempelajari dan mengimplementasikan kode "
          "socket di kelas. Sekarang, Anda diharapkan membuat aplikasi sederhana chatting sederhana tersebut "
