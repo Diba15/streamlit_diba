@@ -84,44 +84,31 @@ halo = Image.open("./image/halo_dek.png")
 
 st.image(halo, "Example of how HALO DEK! apps work")
 
+st.subheader("TCP", divider="red")
+
 st.subheader("Server.py")
 
 code_server = '''
 import socket
 
-# Membuat socket server
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("0.0.0.0", 8080))
-server.listen(5)
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5005
+BUFFER_SIZE = 1024
+s = socket.socket(socket.AF_INET,  # Internet
+                  socket.SOCK_STREAM)  # TCP
+s.bind((TCP_IP, TCP_PORT))
+s.listen(1)
 
-print("Server HALO DEK! sedang berjalan...")
+print("Server Halo DEK Sedang Berjalan...")
 
-# Daftar klien yang terhubung
-clients = []
+while 1:
+    conn, addr = s.accept()
+    print("Alamat: ", addr)
+    data = conn.recv(BUFFER_SIZE)
+    print("Client Halo DEK! : ", data.decode())
+    conn.send(data)
 
-while True:
-    client_socket, addr = server.accept()
-    clients.append(client_socket)
-
-    print(f"Klien {addr[0]}:{addr[1]} terhubung")
-
-    while True:
-        try:
-            # Menerima pesan dari klien
-            data = client_socket.recv(1024)
-            if not data:
-                break
-
-            # Menyebarkan pesan kepada semua klien yang terhubung
-            for client in clients:
-                if client != client_socket:
-                    client.send(data)
-        except:
-            break
-
-    print(f"Klien {addr[0]}:{addr[1]} terputus")
-    clients.remove(client_socket)
-    client_socket.close()
+conn.close()
 '''
 
 st.code(code_server, language="python")
@@ -129,25 +116,58 @@ st.code(code_server, language="python")
 code_client = '''
 import socket
 
-# Membuat socket klien
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(("127.0.0.1", 8080))
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5005
+BUFFER_SIZE = 1024
+PESAN = input("Masukkan Pesan : ")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
+s.connect((TCP_IP, TCP_PORT))
+s.send(PESAN.encode())
+data = s.recv(BUFFER_SIZE)
+s.close()
+print("data diterima : ", data.decode())
+'''
+st.subheader("client.py")
+
+st.code(code_client, language="python")
+
+st.subheader("UDP", divider="red")
+
+st.subheader("Server.py")
+
+code_server = '''
+import socket
+
+UDP_IP = "127.0.0.1"
+UDP_PORT = 5005
+sock = socket.socket(socket.AF_INET,  # Internet
+                     socket.SOCK_DGRAM)  # UDP
+
+sock.bind((UDP_IP, UDP_PORT))
+
+print("Server Halo DEK Sedang Berjalan...")
 
 while True:
-    try:
-        # Menerima pesan dari server
-        data = client.recv(1024)
-        if not data:
-            break
-        print(data.decode())
+    data, addr = sock.recvfrom(1024)
+    print(addr)
+    print("Client Halo Dek! : ", data.decode())
+'''
 
-        # Mengirim pesan
-        message = input()
-        client.send(message.encode())
-    except:
-        break
+st.code(code_server, language="python")
 
-client.close()
+code_client = '''
+import socket
+
+UDP_IP = '127.0.0.1'
+UDP_PORT = 5005
+
+PESAN = input("Masukkan Pesan : ")
+print("target IP : ", UDP_IP)
+print("target port:", UDP_PORT)
+print("pesan : ", PESAN)
+sock = socket.socket(socket.AF_INET, #Internet
+ socket.SOCK_DGRAM) #UDP
+sock.sendto(PESAN.encode (), (UDP_IP, UDP_PORT))
 
 '''
 st.subheader("client.py")
