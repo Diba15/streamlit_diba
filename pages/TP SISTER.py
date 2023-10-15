@@ -1,10 +1,9 @@
 import streamlit as st
+from PIL import Image
 
 tab2, tab3, tab4, tab5 = st.tabs(["TP2", "TP3", "TP4", "TP5"])
 
 with tab2:
-    import streamlit as st
-
     st.title("TP MOD 2")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -23,7 +22,8 @@ with tab2:
 
     st.write("**Python 2 dan Python 3 adalah dua versi utama dari bahasa pemrograman Python, dan keduanya memiliki "
              "perbedaan yang signifikan. Salah satu perbedaan terbesar adalah cara penanganan print, di mana Python 2 "
-             "menggunakan pernyataan print tanpa tanda kurung, sedangkan Python 3 menggunakan fungsi print() dengan tanda "
+             "menggunakan pernyataan print tanpa tanda kurung, sedangkan Python 3 menggunakan fungsi print() dengan "
+             "tanda "
              "kurung. Selain itu, Python 2 menghasilkan hasil pembagian bulat jika membagi dua bilangan bulat, "
              "sedangkan Python 3 menghasilkan hasil pembagian desimal. Perubahan penting lainnya melibatkan penanganan "
              "string dan Unicode, dengan Python 3 yang lebih konsisten dalam mendukung Unicode dan menggunakan UTF-8 "
@@ -50,51 +50,51 @@ with tab2:
 
 
     code = '''
-    def tambah(x, y):
-        print("Hasil Pertambahan: ", x + y)
+        def tambah(x, y):
+            print("Hasil Pertambahan: ", x + y)
 
 
-    def kurang(x, y):
-        print("Hasil Pengurangan: ", x - y)
+        def kurang(x, y):
+            print("Hasil Pengurangan: ", x - y)
 
 
-    def kali(x, y):
-        print("Hasil Perkalian: ", x * y)
+        def kali(x, y):
+            print("Hasil Perkalian: ", x * y)
 
 
-    def bagi(x, y):
-        print("Hasil Pembagian: ", x / y)
+        def bagi(x, y):
+            print("Hasil Pembagian: ", x / y)
 
 
-    def calculator():
-        print("Kalkulator Sederhana")
-        print("=================================")
-        print(f"{'Nama':<{5}}", ":", "Dimas Bagas Saputro")
-        print(f"{'NIM':<{5}}", ":", "1301228515")
-        print(f"{'Kelas':<{4}}", ":", "IFX-46-GAB")
-        print("=================================")
-        x = int(input("Masukkan Variable Pertama: "))
-        y = int(input("Masukkan Variable Kedua: "))
-        print("=================================")
-        print("Operasi")
-        print("1. Tambah")
-        print("2. Kurang")
-        print("3. Kali")
-        print("4. Bagi")
-        operasi = input("Pilih Operasi: ")
-        if operasi == "1":
-            tambah(x, y)
-        elif operasi == "2":
-            kurang(x, y)
-        elif operasi == "3":
-            kali(x, y)
-        elif operasi == "4":
-            bagi(x, y)
+        def calculator():
+            print("Kalkulator Sederhana")
+            print("=================================")
+            print(f"{'Nama':<{5}}", ":", "Dimas Bagas Saputro")
+            print(f"{'NIM':<{5}}", ":", "1301228515")
+            print(f"{'Kelas':<{4}}", ":", "IFX-46-GAB")
+            print("=================================")
+            x = int(input("Masukkan Variable Pertama: "))
+            y = int(input("Masukkan Variable Kedua: "))
+            print("=================================")
+            print("Operasi")
+            print("1. Tambah")
+            print("2. Kurang")
+            print("3. Kali")
+            print("4. Bagi")
+            operasi = input("Pilih Operasi: ")
+            if operasi == "1":
+                tambah(x, y)
+            elif operasi == "2":
+                kurang(x, y)
+            elif operasi == "3":
+                kali(x, y)
+            elif operasi == "4":
+                bagi(x, y)
 
 
-    if __name__ == '__main__':
-        calculator()
-    '''
+        if __name__ == '__main__':
+            calculator()
+        '''
 
     st.code(code, language='python')
 
@@ -115,9 +115,6 @@ with tab2:
                 bagi(x, y)
 
 with tab3:
-    import streamlit as st
-    from PIL import Image
-
     st.title("TP MOD 3")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -295,8 +292,6 @@ with tab3:
     st.code(code_client, language="python")
 
 with tab4:
-    import streamlit as st
-    from PIL import Image
 
     st.title("TP MOD 4")
 
@@ -419,9 +414,6 @@ with tab4:
     st.image(client_img, "Result Client RPC")
 
 with tab5:
-    import streamlit as st
-    from PIL import Image
-
     st.title("TP MOD 5")
 
     st.write("**Nama : Dimas Bagas Saputro**")
