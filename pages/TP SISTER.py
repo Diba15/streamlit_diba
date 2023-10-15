@@ -456,6 +456,14 @@ def tp5():
 
     st.header("Topik : MQTT Programming")
 
+    st.write("Cara menggunakan Mosquitto: ")
+    st.write("1. Instal MQTT dengan menggunakan command pip install paho-mqtt pada command prompt atau dapat "
+             "mendownload library secara manual pada [Link ini](https://pypi.org/project/paho-mqtt/)")
+    st.write("2. Download Mosquitto pada [Link ini](https://mosquitto.org/download/) (sesuaikan versi windows anda).")
+    st.write("3. Lakukan instalasi Mosquitto dengan file Mosquitto yang telah anda download.")
+    st.write("4. Buka command prompt, lalu ubah path cmd ke dalam folder instalasi Mosquitto yang telah terinstal")
+    st.write("5. Jalankan Mosquitto dengan menggunakan command mosquitto.exe -p 3333")
+
     st.write("Buatlah program sederhana menggunakan indirect communication publisher subscriber dengan spesifikasi "
              "sebagai berikut:")
     st.write(
