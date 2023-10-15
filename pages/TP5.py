@@ -11,7 +11,16 @@ st.header("Topik : Pengantar Inderect Communication")
 
 st.subheader("1. Ungkapkan secara lengkap bagaimana indirect communication bekerja!", divider="red")
 
-st.write("")
+st.write("Indirect Communication, atau Komunikasi secara tidak langsung, beroperasi dengan memanfaatkan berbagai alat "
+         "dan teknologi untuk mengirimkan pesan antara pengirim dan penerima tanpa perlu interaksi tatap muka "
+         "langsung. Biasanya, pengirim menyusun pesan, yang kemudian diterjemahkan ke dalam format yang sesuai dengan "
+         "media atau perantara yang dipilih. Media ini, yang bisa berupa panggilan telepon, email, pesan teks, "
+         "atau platform media sosial, berperan sebagai perantara melalui mana pesan ditransmisikan. Penerima, "
+         "yang berlokasi jauh, mengakses pesan melalui perangkat komunikasi mereka, mendekripsi atau "
+         "menginterpretasikannya jika diperlukan, dan kemudian merespons atau mengambil tindakan yang sesuai. "
+         "Komunikasi tidak langsung memungkinkan pertukaran informasi yang efisien dan jarak jauh, dan umumnya "
+         "digunakan dalam metode komunikasi kontemporer, melewati hambatan fisik dan memungkinkan interaksi efektif "
+         "dalam jarak jauh.")
 
 st.subheader("2. Ungkapkan deduksi Anda tentang protokol publish subscribe dan message queue !", divider="red")
 
