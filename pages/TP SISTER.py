@@ -1,9 +1,10 @@
 import streamlit as st
 from PIL import Image
 
-tab2, tab3, tab4, tab5 = st.tabs(["TP2", "TP3", "TP4", "TP5"])
+st.sidebar.header("Tugas Pendahuluan SISTER")
 
-with tab2:
+
+def tp2():
     st.title("TP MOD 2")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -32,22 +33,17 @@ with tab2:
 
     st.header("Topik : Pemrograman Python")
 
-
     def tambah(x, y):
         st.write("Hasil Pertambahan: ", x + y)
-
 
     def kurang(x, y):
         st.write("Hasil Pengurangan: ", x - y)
 
-
     def kali(x, y):
         st.write("Hasil Perkalian: ", x * y)
 
-
     def bagi(x, y):
         st.write("Hasil Pembagian: ", x / y)
-
 
     code = '''
         def tambah(x, y):
@@ -114,7 +110,8 @@ with tab2:
             elif operasi == 'Bagi':
                 bagi(x, y)
 
-with tab3:
+
+def tp3():
     st.title("TP MOD 3")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -291,8 +288,8 @@ with tab3:
 
     st.code(code_client, language="python")
 
-with tab4:
 
+def tp4():
     st.title("TP MOD 4")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -413,7 +410,8 @@ with tab4:
 
     st.image(client_img, "Result Client RPC")
 
-with tab5:
+
+def tp5():
     st.title("TP MOD 5")
 
     st.write("**Nama : Dimas Bagas Saputro**")
@@ -517,3 +515,13 @@ with tab5:
 
     st.image(server_img, "Result MQTT")
 
+
+page_names_to_funcs = {
+    "TP2": tp2,
+    "TP3": tp3,
+    "TP4": tp4,
+    "TP5": tp5
+}
+
+tp_name = st.sidebar.selectbox("Pilih TP", page_names_to_funcs)
+page_names_to_funcs[tp_name]()
