@@ -1,7 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
-import paho.mqtt.client as mqtt
 import time
 import datetime
 
