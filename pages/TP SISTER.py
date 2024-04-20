@@ -485,7 +485,7 @@ def tp5():
     import datetime
 
 
-    def on_message(message):
+    def on_message(client, userdata, message):
         print('Info Waktu:', str(message.payload.decode("utf-8")))
 
 
