@@ -284,7 +284,12 @@ def data_sensor():
     #     'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
     # })
 
-    firebase_admin.get_app(name='[DEFAULT]')
+    if firebase_admin._DEFAULT_APP_NAME in firebase_admin._apps:
+        app = firebase_admin.get_app(name='[DEFAULT]')
+    else:
+        app = firebase_admin.initialize_app(cred_obj, {
+            'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
+        })
 
     ref = db.reference("/data")
 
