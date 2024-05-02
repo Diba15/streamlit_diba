@@ -2,3 +2,6 @@ streamlit
 pandas
 numpy
 firebase_admin
+numpy
+matplotlib
+seaborn
