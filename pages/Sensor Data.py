@@ -316,10 +316,14 @@ def data_sensor():
 
     df = pd.DataFrame(data_ref.values())
 
+    pd.to_datetime(df['time']).apply(lambda x: x.date())
+
+    df.set_index('time', inplace=True)
+
     st.dataframe(df,
                  column_config={
                      "time": st.column_config.Column(
-                         width="large",
+                         width="medium",
                      ),
                      "temperature": st.column_config.Column(
                          width="small",
@@ -340,9 +344,9 @@ def data_sensor():
 
     st.write(df.isna().sum())
 
-    # st.header("Data Correlation")
+    st.header("Data Correlation")
     #
-    # st.write(df.corr())
+    st.write(df.corr())
 
     st.header("Data Visualization")
 
@@ -351,6 +355,31 @@ def data_sensor():
     st.bar_chart(df[["temperature", "tvoc", "hcho", "co2"]])
 
     st.area_chart(df[["temperature", "tvoc", "hcho", "co2"]])
+
+    st.subheader("Time Series Visualization")
+
+    plt.style.use('fivethirtyeight')
+    df.plot(subplots=True,
+            layout=(6, 3),
+            figsize=(22, 22),
+            fontsize=10,
+            linewidth=2,
+            sharex=False,
+            title='Visualization of the original Time Series')
+
+    st.pyplot(plt.gcf())
+    st.subheader("Correlation Matrix")
+
+    corr_matrix = df.corr(method='spearman')
+    f, ax = plt.subplots(figsize=(16, 8))
+    sns.heatmap(corr_matrix, annot=True, fmt='.2f', linewidth=0.4,
+                annot_kws={"size": 10}, cmap='coolwarm', ax=ax)
+    plt.xticks(fontsize=10)
+    plt.yticks(fontsize=10)
+
+    st.pyplot(f)
+
+    st.header("Data Preprocessing")
 
 
 page_names_to_funcs = {
