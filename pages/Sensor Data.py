@@ -21,6 +21,19 @@ def read_data():
         <fieldset>
           <legend>Read data:</legend>
           <hr>
+          <div class="form-check">
+              <input class="form-check-input" type="radio" name="flexRadioDefault" id="existing_data">
+              <label class="form-check-label" for="existing_data">
+                Add Existing Data
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="flexRadioDefault" id="new_data">
+              <label class="form-check-label" for="new_data">
+                Add New Data
+              </label>
+            </div>
+          <div id="form"></div>
           <button class="btn btn-light" onclick="enableNotifications()">Enable notifications</button></br>
           <button class="btn btn-light" onclick="readData()">Read sensor data</button></br>
           <button class="btn btn-light" onclick="sendCommand()">Send command</button></br>
@@ -240,29 +253,80 @@ def read_data():
           const app = initializeApp(firebaseConfig);
           const database = getDatabase(app);
           console.log(database);
-          const test = ref(database, 'test');
-          get(test).then((snapshot) => {
-            if (snapshot.exists()) {
-                console.log(snapshot.val());
-            }
-          });
+          const test = ref(database, 'data');
+          
+          document.getElementById('existing_data').addEventListener('click', function() {
+                document.getElementById('form').innerHTML = `
+                        <select class="form-select" aria-label="Default select example" id="select_room">
+                          <option selected>Select Room Name</option>
+                          
+                        </select>
+                    `;
+                    
+                var room = document.getElementById('select_room');
+                    
+                get(test).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        snapshot.forEach((childSnapshot) => {
+                            var option = document.createElement('option');
+                            option.text = childSnapshot.key;
+                            option.value = childSnapshot.key;
+                            room.appendChild(option);
+                        });
+                    }
+              });
+            });
+            
+            document.getElementById('new_data').addEventListener('click', function() {
+                document.getElementById('form').innerHTML = `
+                        <div class="mb-3">
+                            <input class="form-control" id="new_room" type="text" placeholder="Enter Room Name" 
+                            pattern="[A-Za-z0-9]+" onkeydown="if(['Space'].includes(arguments[0].code)){return false;}"/>
+                        </div>
+                    `;
+            });
+          
+          
 
           function addData(time, temperature, tvocs, hcho, co2) {
-            push(ref(database, 'data/'), {
-                time: time,
-                temperature: temperature,
-                tvoc: tvocs,
-                hcho: hcho,
-                co2: co2
-            })
-            .then(() => {
-                console.log('Success Add');
-            })
-            .catch((error) => {
-                console.log('Error Add');
-            });
+            var existingData = document.getElementById('existing_data');
+            var newData = document.getElementById('new_data');
+            var room = document.getElementById('select_room');
+            var new_room = document.getElementById('new_room');
+            
+            
+            if(existingData.checked == true) {
+                console.log('masuk boss');
+                push(ref(database, 'data/' + room.value + '/'), {
+                    time: time,
+                    temperature: temperature,
+                    tvoc: tvocs,
+                    hcho: hcho,
+                    co2: co2
+                })
+                .then(() => {
+                    console.log('Success Add');
+                })
+                .catch((error) => {
+                    console.log('Error Add');
+                });
+            } else {
+                console.log('masuk gass')
+                push(ref(database, 'data/' + new_room.value + '/'), {
+                    time: time,
+                    temperature: temperature,
+                    tvoc: tvocs,
+                    hcho: hcho,
+                    co2: co2
+                })
+                .then(() => {
+                    console.log('Success Add');
+                })
+                .catch((error) => {
+                    console.log('Error Add');
+                });
+            }
           }
-
 
           window.addData = addData;
         </script>
@@ -306,11 +370,17 @@ def data_sensor():
 
     # features = ["time", "temperature", "tvoc", "hcho", "co2"]
 
+    st.title("Read Data from Firebase")
+
+    option = st.selectbox("Select Room", list(data_ref.keys()))
+
+    ref = db.reference("/data/" + option + "/")
+
+    data_ref = ref.get()
+
     def reset_data():
         #     truncate_reference_data("data")
         ref.delete()
-
-    st.title("Read Data from Firebase")
 
     st.button("Reset Data", on_click=reset_data)
 
