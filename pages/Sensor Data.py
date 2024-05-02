@@ -3,6 +3,9 @@ import streamlit.components.v1 as components
 import firebase_admin
 from firebase_admin import db
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
 
@@ -13,17 +16,22 @@ st.header("VSON WP6003 Bluetooth APP Air Quality Detector for PM Formaldehyde TV
 
 def read_data():
     html_string = """
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
         <fieldset>
           <legend>Read data:</legend>
-          <button onclick="enableNotifications()">Enable notifications</button></br>
-          <button onclick="readData()">Read sensor data</button></br>
-          <button onclick="sendCommand()">Send command</button></br>
+          <hr>
+          <button class="btn btn-light" onclick="enableNotifications()">Enable notifications</button></br>
+          <button class="btn btn-light" onclick="readData()">Read sensor data</button></br>
+          <button class="btn btn-light" onclick="sendCommand()">Send command</button></br>
           <input type="checkbox" id="autoRefresh" name="autoRefresh" onclick="autoRefresh()">
           <label for="autoRefresh">Auto refresh values (30s)</label>
         </fieldset>
-
+        
+        
         <fieldset>
           <legend>Sensor calibration:</legend>
+          <hr>
           <div style="font-size: 14px">
           Before sensor calibration procedure please follow these instructions:
           <ol>
@@ -31,17 +39,18 @@ def read_data():
             <li>Keep the device runnin for more than 10 minutes; then take it indoor
           </ol>
           </div>
-          <button onclick="calibrate()">Calibrate</button>
+          <button class="btn btn-light" onclick="calibrate()">Calibrate</button>
         </fieldset>
 
         <fieldset>
           <legend>Console:</legend>
-          <p id="info">Info: </p>
-          <p id="waktu"></p>
-          <p id="temperature"></p>
-          <p id="tvocs"></p>
-          <p id="hchos"></p>
-          <p id="co2s"></p>
+          <hr>
+          Info: <span id="info"></span> <br>
+          Time: <span id="waktu"></span> <br>
+          Temp: <span id="temperature"></span> <br>
+          TVOC: <span id="tvocs"></span> <br>
+          HCHO: <span id="hchos"></span> <br>
+          CO2: <span id="co2s"></span>
         </fieldset>
 
         <script language='javascript'>
@@ -189,7 +198,7 @@ def read_data():
             function logInfo(message) {
               let element = document.getElementById('info');
               console.log(message);
-              element.innerHTML = "Info: " + message;
+              element.innerHTML = message;
             }
 
             function fromHexString(hexString) {
@@ -263,10 +272,10 @@ def read_data():
             height: 900px;
         }
         body {
-          max-width: 400px;
           margin: 0 auto;
           color: white;
           font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+          background: none;
         }
         fieldset > * {
           margin: 5px;
@@ -297,7 +306,13 @@ def data_sensor():
 
     # features = ["time", "temperature", "tvoc", "hcho", "co2"]
 
+    def reset_data():
+        #     truncate_reference_data("data")
+        ref.delete()
+
     st.title("Read Data from Firebase")
+
+    st.button("Reset Data", on_click=reset_data)
 
     df = pd.DataFrame(data_ref.values())
 
@@ -317,9 +332,25 @@ def data_sensor():
                      )
                  })
 
+    st.header("Data Summary")
+
     st.write(df.describe())
 
+    st.header("Data Missing Value")
+
     st.write(df.isna().sum())
+
+    # st.header("Data Correlation")
+    #
+    # st.write(df.corr())
+
+    st.header("Data Visualization")
+
+    st.line_chart(df[["temperature", "tvoc", "hcho", "co2"]])
+
+    st.bar_chart(df[["temperature", "tvoc", "hcho", "co2"]])
+
+    st.area_chart(df[["temperature", "tvoc", "hcho", "co2"]])
 
 
 page_names_to_funcs = {
@@ -329,4 +360,3 @@ page_names_to_funcs = {
 
 tp_name = st.sidebar.selectbox("Pilih Menu", page_names_to_funcs)
 page_names_to_funcs[tp_name]()
-
