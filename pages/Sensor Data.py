@@ -13,6 +13,10 @@ st.title("WP6003 Air Box Reader")
 
 st.header("VSON WP6003 Bluetooth APP Air Quality Detector for PM Formaldehyde TVOC")
 
+st.write("Tujuan dari penelitian ini adalah membangun sistem untuk mengetahui Indeks Kualitas Udara Dalam Ruangan ("
+         "IAQI) menggunakan sensor yang mendeteksi TVOC, eCO2, dan CO2. Metode Long Short Term Memory (LSTM) akan "
+         "digunakan untuk melatih dan memperkirakan Indeks Kualitas Udara dalam urutan data (seri waktu).")
+
 
 def read_data():
     html_string = """
