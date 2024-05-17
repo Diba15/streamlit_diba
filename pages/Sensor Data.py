@@ -449,8 +449,6 @@ def data_sensor():
 
     st.pyplot(f)
 
-    st.header("Data Preprocessing")
-
 
 page_names_to_funcs = {
     "Read Data": read_data,
