@@ -1,7 +1,12 @@
-streamlit
-pandas
-numpy
+streamlit~=1.27.0
+pandas~=2.1.1
+numpy~=1.23.5
 firebase_admin
 numpy
-matplotlib
-seaborn
+matplotlib~=3.8.4
+seaborn~=0.13.2
+Pillow~=9.5.0
+plotly~=5.14.0
+keras~=2.12.0rc1
+scikit-learn~=1.4.2
+paho-mqtt~=1.6.1
