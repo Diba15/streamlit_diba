@@ -1,18 +1,17 @@
+import firebase_admin
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
-import firebase_admin
 from firebase_admin import db
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.graph_objects as go
-from tensorflow import keras
-from keras.models import Sequential
 from keras.layers import Dense, LSTM
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from keras.models import Sequential
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
 
