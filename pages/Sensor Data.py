@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
+import tensorflow as tf
 from firebase_admin import db
 from keras.layers import Dense, LSTM
 from keras.models import Sequential
