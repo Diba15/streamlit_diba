@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
+from tensorflow import keras
 from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from sklearn.model_selection import train_test_split

@@ -10,3 +10,4 @@ plotly~=5.14.0
 keras~=2.12.0rc1
 scikit-learn~=1.4.2
 paho-mqtt~=1.6.1
+tensorflow~=2.12.0rc1
