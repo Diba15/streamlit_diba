@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
-import tensorflow as tf
 from firebase_admin import db
 from keras.layers import Dense, LSTM
 from keras.models import Sequential
@@ -566,10 +565,6 @@ def data_sensor():
 
     st.dataframe(df_filtered)
 
-    # Buat sebuah plot yang menunjukkan IAQI category dari CO2 yang sudah dipisah menjadi 3 line yaitu hijau untuk Good,
-    # kuning untuk Moderate, dan merah untuk Hazardous. dan y juga berdasarkan category yang sudah diubah menjadi
-    # kategori Good = 1, Moderate = 0, dan Hazardous = -1 dan x nya adalah waktu setiap 5 menit
-
     fig = go.Figure()
 
     for category in df_filtered["iaqi_category_co2"].unique():
@@ -585,7 +580,7 @@ def data_sensor():
     fig.update_layout(title="IAQI Category CO2", xaxis_title="Time", yaxis_title="Category", showlegend=True)
     st.plotly_chart(fig)
 
-    st.header("Data Preprocessing")
+    st.header("Data Preprocessing CO2")
 
     # Splitting the dataset into training and testing set
 
@@ -602,7 +597,7 @@ def data_sensor():
 
     st.write("y_train:", y_train)
 
-    st.header("Modeling")
+    st.header("CO2 Modeling")
 
     # Create a model using LSTM classification
 
@@ -646,13 +641,13 @@ def data_sensor():
 
     accuracy = accuracy_score(y_test, y_pred_category)
 
-    st.write("Accuracy:", accuracy)
+    st.write("Accuracy: {:5.2f}%".format(accuracy * 100))
 
     # Print MSE
 
     mse = mean_squared_error(y_test, y_pred_category)
 
-    st.write("MSE:", mse)
+    st.write("MSE: {:5.2f}%".format(mse * 100))
 
     # Compare the actual and prediction
 
@@ -668,9 +663,86 @@ def data_sensor():
 
     # Save the model
 
-    model.save("model.h5")
+    # model.save("model.h5")
+    #
+    # st.write("Model has been saved as model.h5")
 
-    st.write("Model has been saved as model.h5")
+    # # Buat Data processing untuk TVOC
+    #
+    # st.header("Data Preprocessing TVOC")
+    #
+    # # Splitting the dataset into training and testing set
+    #
+    # X = df_filtered[["co2", "tvoc"]].values
+    # y = df_filtered[["iaqi_category_tvoc"]].values
+    #
+    # y = pd.DataFrame(y).replace({"Good": 1, "Moderate": 2, "Hazardous": 3}).values
+    #
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    #
+    # st.write("X_train shape:", X_train.shape)
+    #
+    # st.write("X_test shape:", X_test.shape)
+    #
+    # st.write("y_train:", y_train)
+    #
+    # st.header("TVOC Modeling")
+    #
+    # # Create a model using LSTM classification
+    #
+    # model = Sequential()
+    #
+    # model.add(LSTM(50, activation="relu", input_shape=(X_train.shape[1], 1)))
+    #
+    # model.add(Dense(1))
+    #
+    # model.compile(optimizer="adam", loss="mse")
+    #
+    # # Fit the model
+    #
+    # model.fit(X_train, y_train, epochs=200, batch_size=32, verbose=1)
+    #
+    # # Evaluate the model
+    #
+    # y_pred = model.predict(X_test)
+    #
+    # st.write("y_pred:", y_pred)
+    #
+    # # Konversi prediksi menjadi kategori
+    #
+    # y_pred_category = np.where(y_pred <= 1, 1, np.where(y_pred <= 2, 2, 3))
+    #
+    # st.write("y_pred_category:", y_pred_category)
+    #
+    # # Evaluate the model
+    #
+    # accuracy = accuracy_score(y_test, y_pred_category)
+    #
+    # st.write("Accuracy:", accuracy)
+    #
+    # # Print MSE
+    #
+    # mse = mean_squared_error(y_test, y_pred_category)
+    #
+    # st.write("MSE:", mse)
+    #
+    # # Compare the actual and prediction
+    #
+    # df_compare = pd.DataFrame({"Actual": y_test.flatten(), "Prediction": y_pred_category.flatten()})
+    #
+    # df_compare["Accuracy"] = np.where(df_compare["Actual"] == df_compare["Prediction"], "Accurate", "Not Accurate")
+    #
+    # df_compare["Actual"] = pd.DataFrame(df_compare["Actual"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
+    #
+    # df_compare["Prediction"] = pd.DataFrame(df_compare["Prediction"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
+    #
+    # st.dataframe(df_compare)
+    #
+    # # Save the model
+    #
+    # # model.save("model_tvoc.h5")
+    #
+    # # st.write("Model has been saved as model_tvoc.h5")
 
 
 page_names_to_funcs = {
