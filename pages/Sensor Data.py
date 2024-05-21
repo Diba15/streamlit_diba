@@ -463,7 +463,6 @@ def data_sensor():
     #     Filtered Data
     st.header("Filtered Data")
 
-    # add text below the image
     st.write("Image Source: https://i-qlair.com/indoor-air-quality-monitoring-complete-guide/")
     st.image("./image/iaqi_metric.png")
 
@@ -590,20 +589,8 @@ def data_sensor():
     model = Sequential()
     model.add(LSTM(50, activation="relu", input_shape=(X_train.shape[1], 1)))
     model.add(Dense(1))
-    # Bisakah kamu jelaskan kenapa menggunakan activation relu?
-    # Jawaban: Karena activation relu merupakan activation function yang paling sering digunakan dan memiliki performa
-    # yang baik dalam model deep learning. Activation relu juga memiliki kelebihan yaitu mengatasi masalah vanishing
-    # gradient yang sering terjadi pada activation function sigmoid dan tanh.
 
     model.compile(optimizer="adam", loss="mse")
-    # Bisakah kamu jelaskan kenapa menggunakan loss mse?
-    # Jawaban: Karena loss mse merupakan loss function yang paling sering digunakan untuk regression problem dan
-    # memiliki performa yang baik dalam model deep learning. Loss mse juga memiliki kelebihan yaitu menghitung
-    # error antara prediksi dan target dengan cara menghitung squared error.
-    # Bisakah kamu jelaskan kenapa menggunakan optimizer adam?
-    # Jawaban: Karena optimizer adam merupakan optimizer yang paling sering digunakan dan memiliki performa yang baik
-    # dalam model deep learning. Optimizer adam juga memiliki kelebihan yaitu menghitung learning rate secara adaptif
-    # dan menghitung momentum secara adaptif.
 
     # Fit the model
 
@@ -659,19 +646,11 @@ def data_sensor():
 
     st.plotly_chart(fig)
 
-    # Saya ingin melihat line plot timeseries yang nilai x nya adalah waktu dan nilai y nya adalah IAQI co2
-    # sedangkan garisnya adalah kategori co2
-    # menggunakan Plotly
-
     st.write("Line Plot Timeseries CO2")
 
     fig = px.line(df_filtered, y="iaqi_co2", color="iaqi_category_co2", title="Line Plot Timeseries CO2")
 
     st.plotly_chart(fig)
-
-    # Saya ingin melihat line plot timeseries yang nilai x nya adalah waktu dan nilai y nya adalah tvoc
-    # sedangkan garisnya adalah kategori tvoc
-    # menggunakan Plotly
 
     st.write("Line Plot Timeseries TVOC")
 
