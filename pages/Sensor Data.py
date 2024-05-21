@@ -594,7 +594,7 @@ def data_sensor():
 
     # Fit the model
 
-    model.fit(X_train, y_train, epochs=200, batch_size=32, verbose=1)
+    model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=1)
 
     # Evaluate the model
 
@@ -627,6 +627,16 @@ def data_sensor():
     # Compare the actual and prediction
 
     df_compare = pd.DataFrame({"Actual": y_test.flatten(), "Prediction": y_pred_category.flatten()})
+
+    st.dataframe(df_compare)
+
+    # Buat line plot yang menampilkan perbandingan antara actual dan prediction
+
+    st.header("Perbandingan Actual dan Prediction")
+
+    fig = px.line(df_compare, title="Perbandingan Actual dan Prediction")
+
+    st.plotly_chart(fig)
 
     df_compare["Accuracy"] = np.where(df_compare["Actual"] == df_compare["Prediction"], "Accurate", "Not Accurate")
 
