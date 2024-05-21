@@ -647,7 +647,7 @@ def data_sensor():
     model.add(BatchNormalization())
     model.add(Dense(1, activation='sigmoid'))
 
-    model.compile(optimizer=Adam(lr=5e-2), loss="binary_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer=Adam(lr=5e-2), loss="binary_crossentropy", metrics=["acc"])
 
     # Print Model Summary
 
@@ -687,6 +687,20 @@ def data_sensor():
     st.write(f'train accuracy = {round(train_acc * 100, 4)}%')
     st.write(f'test accuracy = {round(test_acc * 100, 4)}%')
     st.write(f'test error = {round((1 - test_acc) * M_TEST)} out of {M_TEST} examples')
+
+    st.write(History.history.keys())
+
+    # Plot the loss and accuracy curves over epochs:
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(18, 6))
+    axs[0].plot(History.history['loss'], color='b', label='Training loss')
+    axs[0].plot(History.history['val_loss'], color='r', label='Validation loss')
+    axs[0].set_title("Loss curves")
+    axs[0].legend(loc='best', shadow=True)
+    axs[1].plot(History.history['acc'], color='b', label='Training accuracy')
+    axs[1].plot(History.history['val_acc'], color='r', label='Validation accuracy')
+    axs[1].set_title("Accuracy curves")
+    axs[1].legend(loc='best', shadow=True)
+    st.pyplot(fig)
 
     # Model Evaluation
 
