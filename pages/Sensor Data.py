@@ -2,16 +2,16 @@ import firebase_admin
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
 import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
-import plotly.express as px
 from firebase_admin import db
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential
+from keras.optimizers import Adam
+from keras.regularizers import l2
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
@@ -587,18 +587,43 @@ def data_sensor():
     # Create a model using LSTM classification
 
     model = Sequential()
-    model.add(LSTM(50, activation="relu", input_shape=(X_train.shape[1], 1)))
-    model.add(Dense(1))
+    model.add(LSTM(8, activation='tanh', input_shape=(X_train.shape[1], 1), recurrent_activation='hard_sigmoid'
+                   , return_sequences=True, return_state=False, stateful=False, unroll=False))
 
-    model.compile(optimizer="adam", loss="mse")
+    model.add(BatchNormalization())
+    model.add(LSTM(units=8,
+                   activation='tanh', recurrent_activation='hard_sigmoid',
+                   return_sequences=True, return_state=False,
+                   stateful=False, unroll=False
+                   ))
+    model.add(BatchNormalization())
+    model.add(LSTM(units=8,
+                   activation='tanh', recurrent_activation='hard_sigmoid',
+                   return_sequences=False, return_state=False,
+                   stateful=False, unroll=False
+                   ))
+    model.add(BatchNormalization())
+    model.add(Dense(1, activation='sigmoid'))
+
+    model.compile(optimizer=Adam(lr=5e-2), loss="binary_crossentropy", metrics=["accuracy"])
 
     # Fit the model
 
-    model.fit(X_train, y_train, epochs=200, batch_size=32, verbose=1)
+    model.fit(X_train, y_train, epochs=50, batch_size=X_train.shape[0], verbose=1)
 
     # Evaluate the model
 
+    train_loss, train_acc = model.evaluate(X_train, y_train,
+                                           batch_size=X_train.shape[0], verbose=1)
+
+    st.write("Train Loss:", train_loss)
+    st.write("Train Accuracy:", train_acc)
+
+
+
     y_pred = model.predict(X_test)
+
+    st.write("x_test", X_test)
 
     st.write("y_pred:", y_pred)
 
@@ -618,11 +643,7 @@ def data_sensor():
 
     accuracy = accuracy_score(y_test, y_pred_category)
 
-    mse = mean_squared_error(y_test, y_pred_category)
-
     st.write("Accuracy: {:5.2f}%".format(accuracy * 100))
-
-    st.write("MSE: {:5.2f}%".format(mse * 100))
 
     # Compare the actual and prediction
 
