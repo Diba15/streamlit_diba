@@ -1,3 +1,6 @@
+import io
+from time import time
+
 import firebase_admin
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,12 +10,15 @@ import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
 from firebase_admin import db
+from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential
 from keras.optimizers import Adam
 from keras.regularizers import l2
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
 
@@ -554,37 +560,73 @@ def data_sensor():
 
     def iaqi_category(iaqi):
         if 0 <= iaqi <= 50:
-            return "Good"
+            return 1
         elif 51 <= iaqi <= 100:
-            return "Moderate"
+            return 0
         else:
-            return "Hazardous"
+            return -1
 
     df_filtered["iaqi_category_co2"] = df_filtered["iaqi_co2"].apply(iaqi_category)
     df_filtered["iaqi_category_tvoc"] = df_filtered["iaqi_tvoc"].apply(iaqi_category)
 
-    st.dataframe(df_filtered)
+    def highlight_good(s):
+        return ['background-color: green' if v == 1 else '' for v in s]
+
+    def highlight_moderate(s):
+        return ['background-color: yellow' if v == 0 else '' for v in s]
+
+    def highlight_hazardous(s):
+        return ['background-color: red' if v == -1 else '' for v in s]
+
+    st.dataframe(df_filtered.style.apply(highlight_good, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(
+        highlight_moderate, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(highlight_hazardous,
+                                                                                      subset=["iaqi_category_co2",
+                                                                                              "iaqi_category_tvoc"]))
+
+    # Features Engineering
+
+    st.header("Features Engineering")
+
+    df_transform = df_filtered.loc[:, ["iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+
+    st.dataframe(df_transform)
+
+    df_transform.fillna(method="bfill", inplace=True)
+
+    st.dataframe(df_transform)
 
     st.header("Data Preprocessing CO2")
 
-    # Splitting the dataset into training and testing set
+    # Splitting Data
 
-    X = df_filtered[["co2", "tvoc"]].values
-    y = df_filtered[["iaqi_category_co2"]].values
+    st.write("Pembagian Data Training dan Data Testing")
 
-    y = pd.DataFrame(y).replace({"Good": 1, "Moderate": 2, "Hazardous": 3}).values
+    X = df_transform[["iaqi_co2"]]
+    y = df_transform["iaqi_category_co2"]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    st.write("X_train shape:", X_train.shape)
+    st.write("Data Training")
 
-    st.write("X_test shape:", X_test.shape)
+    st.write(X_train)
 
-    st.write("y_train:", y_train)
+    st.write("Data Testing")
 
-    st.header("CO2 Modeling")
+    st.write(X_test)
 
-    # Create a model using LSTM classification
+    st.write("Data Training Label")
+
+    st.write(y_train)
+
+    st.write("Data Testing Label")
+
+    st.write(y_test)
+
+    # Model Training
+
+    st.header("Model Training")
+
+    st.write("Model yang digunakan adalah LSTM Classifier")
 
     model = Sequential()
     model.add(LSTM(8, activation='tanh', input_shape=(X_train.shape[1], 1), recurrent_activation='hard_sigmoid'
@@ -607,75 +649,89 @@ def data_sensor():
 
     model.compile(optimizer=Adam(lr=5e-2), loss="binary_crossentropy", metrics=["accuracy"])
 
-    # Fit the model
-
-    model.fit(X_train, y_train, epochs=50, batch_size=X_train.shape[0], verbose=1)
-
-    # Evaluate the model
-
-    train_loss, train_acc = model.evaluate(X_train, y_train,
-                                           batch_size=X_train.shape[0], verbose=1)
-
-    st.write("Train Loss:", train_loss)
-    st.write("Train Accuracy:", train_acc)
-
-
-
-    y_pred = model.predict(X_test)
-
-    st.write("x_test", X_test)
-
-    st.write("y_pred:", y_pred)
-
-    # Konversi prediksi menjadi kategori
-    # menggunakan np.where untuk check kondisi jika prediksi kurang dari atau sama dengan 1, maka kategori adalah 1,
-    # jika prediksi kurang dari atau sama dengan 2, maka kategori adalah 2, jika tidak keduanya,
-    # maka kategori adalah 3
-    y_pred_category = np.where(y_pred <= 1, 1, np.where(y_pred <= 2, 2, 3))
-
-    st.write("y_pred_category:", y_pred_category)
-
     # Print Model Summary
 
     model.summary(print_fn=lambda x: st.text(x))
 
-    # Evaluate the model
+    # Define a learning rate decay method:
+    lr_decay = ReduceLROnPlateau(monitor='loss',
+                                 patience=1, verbose=0,
+                                 factor=0.5, min_lr=1e-8)
+    # Define Early Stopping:
+    early_stop = EarlyStopping(monitor='val_acc', min_delta=0,
+                               patience=30, verbose=1, mode='auto',
+                               baseline=0, restore_best_weights=True)
 
-    accuracy = accuracy_score(y_test, y_pred_category)
+    # Train the model.
+    # The dataset is small for NN - let's use test_data for validation
+    M_TEST = X_test.shape[0]
+    M_TRAIN = X_train.shape[0]
 
-    st.write("Accuracy: {:5.2f}%".format(accuracy * 100))
+    start = time()
+    History = model.fit(X_train, y_train,
+                        epochs=50,
+                        batch_size=M_TRAIN,
+                        validation_split=0.0,
+                        validation_data=(X_test[:M_TEST], y_test[:M_TEST]),
+                        shuffle=True, verbose=0,
+                        callbacks=[lr_decay, early_stop])
+    st.write('-' * 65)
+    st.write(f'Training was completed in {time() - start:.2f} secs')
+    st.write('-' * 65)
+    # Evaluate the model:
+    train_loss, train_acc = model.evaluate(X_train, y_train,
+                                           batch_size=M_TRAIN, verbose=0)
+    test_loss, test_acc = model.evaluate(X_test[:M_TEST], y_test[:M_TEST],
+                                         batch_size=M_TEST, verbose=0)
+    st.write('-' * 65)
+    st.write(f'train accuracy = {round(train_acc * 100, 4)}%')
+    st.write(f'test accuracy = {round(test_acc * 100, 4)}%')
+    st.write(f'test error = {round((1 - test_acc) * M_TEST)} out of {M_TEST} examples')
 
-    # Compare the actual and prediction
+    # Model Evaluation
 
-    df_compare = pd.DataFrame({"Actual": y_test.flatten(), "Prediction": y_pred_category.flatten()})
+    st.header("Model Evaluation")
 
-    df_compare["Accuracy"] = np.where(df_compare["Actual"] == df_compare["Prediction"], "Accurate", "Not Accurate")
+    y_pred = model.predict(X_test)
 
-    df_compare["Actual"] = pd.DataFrame(df_compare["Actual"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
+    st.write("Prediksi CO2")
 
-    df_compare["Prediction"] = pd.DataFrame(df_compare["Prediction"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
+    st.write(y_pred)
+
+    # Compare Prediction with Actual Data
+
+    st.write("Perbandingan Prediksi dengan Data Asli")
+
+    df_compare = pd.DataFrame({"iaqi_category_co2": y_test, "iaqi_category_co2_pred": y_pred.flatten()})
+
+    # Round the prediction to the nearest integer
+    df_compare['iaqi_category_co2_pred'] = df_compare['iaqi_category_co2_pred'].apply(lambda x: round(x))
 
     st.dataframe(df_compare)
 
-    # Buat EDA
+    # Give an expected and not expected column in dataframe
+    df_compare['expected'] = df_compare['iaqi_category_co2'] == df_compare['iaqi_category_co2_pred']
+
+    st.dataframe(df_compare)
+
+    # EDA
 
     st.header("Exploratory Data Analysis (EDA)")
 
+    # Ubah iaqi_category_co2 menjadi katregori ketika -1 adalah hazardous, 0 adalah moderate dan 1 adalah good
+
+    df_transform['iaqi_category_co2'] = df_transform['iaqi_category_co2'].apply(
+        lambda x: "hazardous" if x == -1 else "moderate" if x == 0 else "good")
+
     st.write("Distribusi Kategori CO2")
 
-    fig = px.histogram(df_filtered, x="iaqi_category_co2", title="Distribusi Kategori CO2")
+    fig = px.histogram(df_transform, x="iaqi_category_co2", title="Distribusi Kategori CO2")
 
     st.plotly_chart(fig)
 
     st.write("Line Plot Timeseries CO2")
 
-    fig = px.line(df_filtered, y="iaqi_co2", color="iaqi_category_co2", title="Line Plot Timeseries CO2")
-
-    st.plotly_chart(fig)
-
-    st.write("Line Plot Timeseries TVOC")
-
-    fig = px.line(df_filtered, y="iaqi_tvoc", color="iaqi_category_tvoc", title="Line Plot Timeseries TVOC")
+    fig = px.line(df_transform, y="iaqi_co2", color="iaqi_category_co2", title="Line Plot Timeseries CO2")
 
     st.plotly_chart(fig)
 
@@ -684,83 +740,6 @@ def data_sensor():
     # model.save("model.h5")
     #
     # st.write("Model has been saved as model.h5")
-
-    # # Buat Data processing untuk TVOC
-    #
-    # st.header("Data Preprocessing TVOC")
-    #
-    # # Splitting the dataset into training and testing set
-    #
-    # X = df_filtered[["co2", "tvoc"]].values
-    # y = df_filtered[["iaqi_category_tvoc"]].values
-    #
-    # y = pd.DataFrame(y).replace({"Good": 1, "Moderate": 2, "Hazardous": 3}).values
-    #
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    #
-    # st.write("X_train shape:", X_train.shape)
-    #
-    # st.write("X_test shape:", X_test.shape)
-    #
-    # st.write("y_train:", y_train)
-    #
-    # st.header("TVOC Modeling")
-    #
-    # # Create a model using LSTM classification
-    #
-    # model = Sequential()
-    #
-    # model.add(LSTM(50, activation="relu", input_shape=(X_train.shape[1], 1)))
-    #
-    # model.add(Dense(1))
-    #
-    # model.compile(optimizer="adam", loss="mse")
-    #
-    # # Fit the model
-    #
-    # model.fit(X_train, y_train, epochs=200, batch_size=32, verbose=1)
-    #
-    # # Evaluate the model
-    #
-    # y_pred = model.predict(X_test)
-    #
-    # st.write("y_pred:", y_pred)
-    #
-    # # Konversi prediksi menjadi kategori
-    #
-    # y_pred_category = np.where(y_pred <= 1, 1, np.where(y_pred <= 2, 2, 3))
-    #
-    # st.write("y_pred_category:", y_pred_category)
-    #
-    # # Evaluate the model
-    #
-    # accuracy = accuracy_score(y_test, y_pred_category)
-    #
-    # st.write("Accuracy:", accuracy)
-    #
-    # # Print MSE
-    #
-    # mse = mean_squared_error(y_test, y_pred_category)
-    #
-    # st.write("MSE:", mse)
-    #
-    # # Compare the actual and prediction
-    #
-    # df_compare = pd.DataFrame({"Actual": y_test.flatten(), "Prediction": y_pred_category.flatten()})
-    #
-    # df_compare["Accuracy"] = np.where(df_compare["Actual"] == df_compare["Prediction"], "Accurate", "Not Accurate")
-    #
-    # df_compare["Actual"] = pd.DataFrame(df_compare["Actual"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
-    #
-    # df_compare["Prediction"] = pd.DataFrame(df_compare["Prediction"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
-    #
-    # st.dataframe(df_compare)
-    #
-    # # Save the model
-    #
-    # # model.save("model_tvoc.h5")
-    #
-    # # st.write("Model has been saved as model_tvoc.h5")
 
 
 page_names_to_funcs = {
