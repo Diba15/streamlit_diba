@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
+import plotly.express as px
 from firebase_admin import db
 from keras.layers import Dense, LSTM
 from keras.models import Sequential
@@ -565,21 +566,6 @@ def data_sensor():
 
     st.dataframe(df_filtered)
 
-    fig = go.Figure()
-
-    for category in df_filtered["iaqi_category_co2"].unique():
-        df_category = df_filtered[df_filtered["iaqi_category_co2"] == category]
-        if category == "Good":
-            color = "green"
-        elif category == "Moderate":
-            color = "yellow"
-        else:
-            color = "red"
-        fig.add_trace(go.Scatter(y=[1] * len(df_category), mode="markers", marker=dict(color=color), name=category))
-
-    fig.update_layout(title="IAQI Category CO2", xaxis_title="Time", yaxis_title="Category", showlegend=True)
-    st.plotly_chart(fig)
-
     st.header("Data Preprocessing CO2")
 
     # Splitting the dataset into training and testing set
@@ -637,15 +623,17 @@ def data_sensor():
 
     st.write("y_pred_category:", y_pred_category)
 
+    # Print Model Summary
+
+    model.summary(print_fn=lambda x: st.text(x))
+
     # Evaluate the model
 
     accuracy = accuracy_score(y_test, y_pred_category)
 
-    st.write("Accuracy: {:5.2f}%".format(accuracy * 100))
-
-    # Print MSE
-
     mse = mean_squared_error(y_test, y_pred_category)
+
+    st.write("Accuracy: {:5.2f}%".format(accuracy * 100))
 
     st.write("MSE: {:5.2f}%".format(mse * 100))
 
@@ -660,6 +648,36 @@ def data_sensor():
     df_compare["Prediction"] = pd.DataFrame(df_compare["Prediction"]).replace({1: "Good", 2: "Moderate", 3: "Hazardous"})
 
     st.dataframe(df_compare)
+
+    # Buat EDA
+
+    st.header("Exploratory Data Analysis (EDA)")
+
+    st.write("Distribusi Kategori CO2")
+
+    fig = px.histogram(df_filtered, x="iaqi_category_co2", title="Distribusi Kategori CO2")
+
+    st.plotly_chart(fig)
+
+    # Saya ingin melihat line plot timeseries yang nilai x nya adalah waktu dan nilai y nya adalah IAQI co2
+    # sedangkan garisnya adalah kategori co2
+    # menggunakan Plotly
+
+    st.write("Line Plot Timeseries CO2")
+
+    fig = px.line(df_filtered, y="iaqi_co2", color="iaqi_category_co2", title="Line Plot Timeseries CO2")
+
+    st.plotly_chart(fig)
+
+    # Saya ingin melihat line plot timeseries yang nilai x nya adalah waktu dan nilai y nya adalah tvoc
+    # sedangkan garisnya adalah kategori tvoc
+    # menggunakan Plotly
+
+    st.write("Line Plot Timeseries TVOC")
+
+    fig = px.line(df_filtered, y="iaqi_tvoc", color="iaqi_category_tvoc", title="Line Plot Timeseries TVOC")
+
+    st.plotly_chart(fig)
 
     # Save the model
 
