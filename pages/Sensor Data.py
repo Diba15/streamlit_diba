@@ -653,11 +653,11 @@ def data_sensor():
 
     model.summary(print_fn=lambda x: st.text(x))
 
-    # Define a learning rate decay method:
+    # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
     lr_decay = ReduceLROnPlateau(monitor='loss',
                                  patience=1, verbose=0,
                                  factor=0.5, min_lr=1e-8)
-    # Define Early Stopping:
+    # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
     early_stop = EarlyStopping(monitor='val_acc', min_delta=0,
                                patience=30, verbose=1, mode='auto',
                                baseline=0, restore_best_weights=True)
@@ -709,8 +709,6 @@ def data_sensor():
     y_pred = model.predict(X_test)
 
     st.write("Prediksi CO2")
-
-    st.write(y_pred)
 
     # Compare Prediction with Actual Data
 
