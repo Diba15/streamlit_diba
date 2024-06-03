@@ -18,7 +18,7 @@ from keras.regularizers import l2
 from keras.utils import to_categorical
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
@@ -578,7 +578,8 @@ def data_sensor():
 
     st.header("Features Engineering")
 
-    df_transform = df_filtered.loc[:, ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+    df_transform = df_filtered.loc[:,
+                   ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
     st.dataframe(df_transform)
 
@@ -595,17 +596,22 @@ def data_sensor():
 
     st.write("Pembagian Data Training dan Data Testing")
 
-    X = df_transform[feature]
+    # Normalisasi Data
+
+    scaler = StandardScaler()
+    X = scaler.fit_transform(df_transform[feature])
     y = df_transform[y_feature]
 
     # One Hot Encoding
 
     y = to_categorical(y)
+    num_classes = y.shape[1]
 
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=True)
 
-    y_train = y_train[:, 1:]
-    y_val = y_val[:, 1:]
+    #
+    # y_train = y_train[:, 1:]
+    # y_val = y_val[:, 1:]
 
     X_train = np.expand_dims(X_train, 1)
     X_val = np.expand_dims(X_val, 1)
@@ -632,128 +638,91 @@ def data_sensor():
 
     st.write("Model yang digunakan adalah LSTM Classifier")
 
-    print(X_train.shape)
-    print(X_train.shape[1:])
-
     model = Sequential()
-    model.add(LSTM(8, activation='tanh', input_shape=(X_train.shape[1:]), recurrent_activation='hard_sigmoid'
-                   , return_sequences=True, return_state=False, stateful=False, unroll=False))
-    model.add(BatchNormalization())
-    model.add(LSTM(units=8,
-                   activation='tanh', recurrent_activation='hard_sigmoid',
-                   return_sequences=True, return_state=False,
-                   stateful=False, unroll=False
-                   ))
-    model.add(BatchNormalization())
-    model.add(LSTM(units=8,
-                   activation='tanh', recurrent_activation='hard_sigmoid',
-                   return_sequences=False, return_state=False,
-                   stateful=False, unroll=False
-                   ))
-    model.add(BatchNormalization())
-    model.add(Dense(3, activation='sigmoid'))
+    model.add(LSTM(64, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(64))
+    model.add(Dense(num_classes, activation="softmax"))
 
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["acc"])
-
-    # Print Model Summary
+    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
     model.summary(print_fn=lambda x: st.text(x))
 
+    # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
     lr_decay = ReduceLROnPlateau(monitor='loss',
                                  patience=1, verbose=0,
                                  factor=0.5, min_lr=1e-8)
-
+    # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
     early_stop = EarlyStopping(monitor='val_acc', min_delta=0,
-                               patience=30, verbose=1, mode='auto', restore_best_weights=True)
+                               patience=30, verbose=1, mode='auto',
+                               baseline=0, restore_best_weights=True)
 
-    # Train the model.
-    # The dataset is small for NN - let's use test_data for validation
-    M_VAL = X_val.shape[0]
-    M_TRAIN = X_train.shape[0]
-
-    start = time()
-    History = model.fit(X_train, y_train,
-                        epochs=30,
-                        batch_size=32,
-                        validation_split=0.0,
-                        validation_data=(X_val[:M_VAL], y_val[:M_VAL]),
-                        shuffle=True, verbose=0,
+    history = model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_val, y_val),
                         callbacks=[lr_decay, early_stop])
-    st.write('-' * 65)
-    st.write(f'Training was completed in {time() - start:.2f} secs')
-    st.write('-' * 65)
-    # Evaluate the model:
-    train_loss, train_acc = model.evaluate(X_train, y_train,
-                                           batch_size=M_TRAIN, verbose=0)
-    test_loss, test_acc = model.evaluate(X_val[:M_VAL], y_val[:M_VAL],
-                                         batch_size=M_VAL, verbose=0)
-    st.write('-' * 65)
-    st.write(f'train accuracy = {round(train_acc * 100, 4)}%')
-    st.write(f'test accuracy = {round(test_acc * 100, 4)}%')
-    st.write(f'test error = {round((1 - test_acc) * M_VAL)} out of {M_VAL} examples')
 
-    st.write(History.history.keys())
+    st.write("Model Training Selesai")
 
-    # Plot the loss and accuracy curves over epochs:
-    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(18, 6))
-    axs[0].plot(History.history['loss'], color='b', label='Training loss')
-    axs[0].plot(History.history['val_loss'], color='r', label='Validation loss')
-    axs[0].set_title("Loss curves")
-    axs[0].legend(loc='best', shadow=True)
-    axs[1].plot(History.history['acc'], color='b', label='Training accuracy')
-    axs[1].plot(History.history['val_acc'], color='r', label='Validation accuracy')
-    axs[1].set_title("Accuracy curves")
-    axs[1].legend(loc='best', shadow=True)
+    st.write("Model Evaluation")
+
+    fig, ax = plt.subplots(1, 2, figsize=(20, 5))
+
+    ax[0].plot(history.history["accuracy"], label="Training Accuracy")
+    ax[0].plot(history.history["val_accuracy"], label="Validation Accuracy")
+    ax[0].set_title("Accuracy")
+    ax[0].set_xlabel("Epoch")
+    ax[0].set_ylabel("Accuracy")
+    ax[0].legend()
+
+    ax[1].plot(history.history["loss"], label="Training Loss")
+    ax[1].plot(history.history["val_loss"], label="Validation Loss")
+    ax[1].set_title("Loss")
+    ax[1].set_xlabel("Epoch")
+    ax[1].legend()
+
     st.pyplot(fig)
 
-    # Model Evaluation
+    # Training accuracy and validation accuracy in percentage
 
-    st.header("Model Evaluation")
+    train_acc = history.history["accuracy"][-1] * 100
 
-    y_pred = model.predict(X_val)
+    val_acc = history.history["val_accuracy"][-1] * 100
 
-    st.write("Prediksi")
+    st.write(f"Training Accuracy: {train_acc:.2f}%")
 
-    # Compare Prediction with Actual Data
+    st.write(f"Validation Accuracy: {val_acc:.2f}%")
 
-    st.write("Perbandingan Prediksi dengan Data Asli")
+    # Prediction
 
-    y_val = np.argmax(y_val, axis=1)
+    st.header("Prediction")
+
+    st.write("Prediksi kategori")
+
+    # Membuat data random dari data yang sudah ada
+    def create_random_data(df, num_samples=len(y_val)):
+        # Ambil sampel acak dari data asli
+        sampled_df = df.sample(n=num_samples, replace=True).reset_index(drop=True)
+
+        # Normalisasi fitur
+        sampled_X = scaler.transform(sampled_df[feature])
+        sampled_X = np.expand_dims(sampled_X, 1)
+
+        return sampled_X
+
+    random_data = create_random_data(df_transform, num_samples=len(y_val))
+
+    y_pred = model.predict(random_data)
 
     y_pred = np.argmax(y_pred, axis=1)
 
-    df_compare = pd.DataFrame({"iaqi_category": y_val, "iaqi_category_pred": y_pred.flatten()})
+    actual = np.argmax(y_val, axis=1)
 
-    # Round the prediction to the nearest integer
-    df_compare['iaqi_category_pred'] = df_compare['iaqi_category_pred'].apply(lambda x: round(x))
+    # Membandingkan hasil prediksi dengan label sebenarnya
+    comparison_df = pd.DataFrame({'True': actual, 'Predicted': y_pred})
+    comparison_df['Correct'] = comparison_df['Predicted'] == comparison_df['True']
 
-    st.dataframe(df_compare)
-
-    # Give an expected and not expected column in dataframe
-    df_compare['expected'] = df_compare['iaqi_category'] == df_compare['iaqi_category_pred']
-
-    st.dataframe(df_compare)
-
-    # EDA
-
-    st.header("Exploratory Data Analysis (EDA)")
-
-    # Ubah iaqi_category_co2 menjadi katregori ketika -1 adalah hazardous, 0 adalah moderate dan 1 adalah good
-
-    df_transform[y_feature] = df_transform[y_feature].apply(
-        lambda x: "hazardous" if x == 3 else "moderate" if x == 2 else "good")
-
-    st.write("Distribusi Kategori")
-
-    fig = px.histogram(df_transform, x=y_feature, title="Distribusi Kategori")
-
-    st.plotly_chart(fig)
-
-    st.write("Line Plot Timeseries CO2")
-
-    fig = px.line(df_transform, y=feature, color="iaqi_category_co2", title="Line Plot Timeseries CO2")
-
-    st.plotly_chart(fig)
+    # Tampilkan hasil prediksi dan akurasi
+    st.dataframe(comparison_df)
+    accuracy = comparison_df['Correct'].mean()
+    st.write(f'Validation Accuracy: {accuracy:.2%}')
 
     # Save the model
 
