@@ -15,6 +15,7 @@ from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential
 from keras.optimizers import Adam
 from keras.regularizers import l2
+from keras.utils import to_categorical
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -492,18 +493,8 @@ def data_sensor():
             iaqi_co2 = ((200 - 151) / (5000 - 2001)) * (co2 - 2001) + 151
         elif 5000 < co2 <= 10000:
             iaqi_co2 = ((300 - 201) / (10000 - 5001)) * (co2 - 5001) + 201
-        elif 10000 < co2 <= 20000:
-            iaqi_co2 = ((400 - 301) / (20000 - 10001)) * (co2 - 10001) + 301
-        elif 20000 < co2 <= 50000:
-            iaqi_co2 = ((500 - 401) / (50000 - 20001)) * (co2 - 20001) + 401
-        elif 50000 < co2 <= 100000:
-            iaqi_co2 = ((600 - 501) / (100000 - 50001)) * (co2 - 50001) + 501
-        elif 100000 < co2 <= 200000:
-            iaqi_co2 = ((700 - 601) / (200000 - 100001)) * (co2 - 100001) + 601
-        elif 200000 < co2 <= 400000:
-            iaqi_co2 = ((800 - 701) / (400000 - 200001)) * (co2 - 200001) + 701
-        elif 400000 < co2 <= 1000000:
-            iaqi_co2 = ((900 - 801) / (1000000 - 400001)) * (co2 - 400001) + 801
+        elif 10000 < co2 <= 15000:
+            iaqi_co2 = ((400 - 301) / (15000 - 10001)) * (co2 - 10001) + 301
         else:
             iaqi_co2 = 1000
 
@@ -562,9 +553,9 @@ def data_sensor():
         if 0 <= iaqi <= 50:
             return 1
         elif 51 <= iaqi <= 100:
-            return 0
+            return 2
         else:
-            return -1
+            return 3
 
     df_filtered["iaqi_category_co2"] = df_filtered["iaqi_co2"].apply(iaqi_category)
     df_filtered["iaqi_category_tvoc"] = df_filtered["iaqi_tvoc"].apply(iaqi_category)
@@ -573,10 +564,10 @@ def data_sensor():
         return ['background-color: green' if v == 1 else '' for v in s]
 
     def highlight_moderate(s):
-        return ['background-color: yellow' if v == 0 else '' for v in s]
+        return ['background-color: yellow' if v == 2 else '' for v in s]
 
     def highlight_hazardous(s):
-        return ['background-color: red' if v == -1 else '' for v in s]
+        return ['background-color: red' if v == 3 else '' for v in s]
 
     st.dataframe(df_filtered.style.apply(highlight_good, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(
         highlight_moderate, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(highlight_hazardous,
@@ -587,7 +578,7 @@ def data_sensor():
 
     st.header("Features Engineering")
 
-    df_transform = df_filtered.loc[:, ["iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+    df_transform = df_filtered.loc[:, ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
     st.dataframe(df_transform)
 
@@ -595,16 +586,29 @@ def data_sensor():
 
     st.dataframe(df_transform)
 
-    st.header("Data Preprocessing CO2")
+    st.header("Data Preprocessing")
+
+    feature = ["co2", "iaqi_co2"]
+    y_feature = "iaqi_category_co2"
 
     # Splitting Data
 
     st.write("Pembagian Data Training dan Data Testing")
 
-    X = df_transform[["iaqi_co2"]]
-    y = df_transform["iaqi_category_co2"]
+    X = df_transform[feature]
+    y = df_transform[y_feature]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # One Hot Encoding
+
+    y = to_categorical(y)
+
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    y_train = y_train[:, 1:]
+    y_val = y_val[:, 1:]
+
+    X_train = np.expand_dims(X_train, 1)
+    X_val = np.expand_dims(X_val, 1)
 
     st.write("Data Training")
 
@@ -612,7 +616,7 @@ def data_sensor():
 
     st.write("Data Testing")
 
-    st.write(X_test)
+    st.write(X_val)
 
     st.write("Data Training Label")
 
@@ -620,7 +624,7 @@ def data_sensor():
 
     st.write("Data Testing Label")
 
-    st.write(y_test)
+    st.write(y_val)
 
     # Model Training
 
@@ -628,10 +632,12 @@ def data_sensor():
 
     st.write("Model yang digunakan adalah LSTM Classifier")
 
-    model = Sequential()
-    model.add(LSTM(8, activation='tanh', input_shape=(X_train.shape[1], 1), recurrent_activation='hard_sigmoid'
-                   , return_sequences=True, return_state=False, stateful=False, unroll=False))
+    print(X_train.shape)
+    print(X_train.shape[1:])
 
+    model = Sequential()
+    model.add(LSTM(8, activation='tanh', input_shape=(X_train.shape[1:]), recurrent_activation='hard_sigmoid'
+                   , return_sequences=True, return_state=False, stateful=False, unroll=False))
     model.add(BatchNormalization())
     model.add(LSTM(units=8,
                    activation='tanh', recurrent_activation='hard_sigmoid',
@@ -645,34 +651,32 @@ def data_sensor():
                    stateful=False, unroll=False
                    ))
     model.add(BatchNormalization())
-    model.add(Dense(1, activation='sigmoid'))
+    model.add(Dense(3, activation='sigmoid'))
 
-    model.compile(optimizer=Adam(lr=5e-2), loss="binary_crossentropy", metrics=["acc"])
+    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["acc"])
 
     # Print Model Summary
 
     model.summary(print_fn=lambda x: st.text(x))
 
-    # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
     lr_decay = ReduceLROnPlateau(monitor='loss',
                                  patience=1, verbose=0,
                                  factor=0.5, min_lr=1e-8)
-    # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
+
     early_stop = EarlyStopping(monitor='val_acc', min_delta=0,
-                               patience=30, verbose=1, mode='auto',
-                               baseline=0, restore_best_weights=True)
+                               patience=30, verbose=1, mode='auto', restore_best_weights=True)
 
     # Train the model.
     # The dataset is small for NN - let's use test_data for validation
-    M_TEST = X_test.shape[0]
+    M_VAL = X_val.shape[0]
     M_TRAIN = X_train.shape[0]
 
     start = time()
     History = model.fit(X_train, y_train,
-                        epochs=50,
-                        batch_size=M_TRAIN,
+                        epochs=30,
+                        batch_size=32,
                         validation_split=0.0,
-                        validation_data=(X_test[:M_TEST], y_test[:M_TEST]),
+                        validation_data=(X_val[:M_VAL], y_val[:M_VAL]),
                         shuffle=True, verbose=0,
                         callbacks=[lr_decay, early_stop])
     st.write('-' * 65)
@@ -681,12 +685,12 @@ def data_sensor():
     # Evaluate the model:
     train_loss, train_acc = model.evaluate(X_train, y_train,
                                            batch_size=M_TRAIN, verbose=0)
-    test_loss, test_acc = model.evaluate(X_test[:M_TEST], y_test[:M_TEST],
-                                         batch_size=M_TEST, verbose=0)
+    test_loss, test_acc = model.evaluate(X_val[:M_VAL], y_val[:M_VAL],
+                                         batch_size=M_VAL, verbose=0)
     st.write('-' * 65)
     st.write(f'train accuracy = {round(train_acc * 100, 4)}%')
     st.write(f'test accuracy = {round(test_acc * 100, 4)}%')
-    st.write(f'test error = {round((1 - test_acc) * M_TEST)} out of {M_TEST} examples')
+    st.write(f'test error = {round((1 - test_acc) * M_VAL)} out of {M_VAL} examples')
 
     st.write(History.history.keys())
 
@@ -706,23 +710,27 @@ def data_sensor():
 
     st.header("Model Evaluation")
 
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(X_val)
 
-    st.write("Prediksi CO2")
+    st.write("Prediksi")
 
     # Compare Prediction with Actual Data
 
     st.write("Perbandingan Prediksi dengan Data Asli")
 
-    df_compare = pd.DataFrame({"iaqi_category_co2": y_test, "iaqi_category_co2_pred": y_pred.flatten()})
+    y_val = np.argmax(y_val, axis=1)
+
+    y_pred = np.argmax(y_pred, axis=1)
+
+    df_compare = pd.DataFrame({"iaqi_category": y_val, "iaqi_category_pred": y_pred.flatten()})
 
     # Round the prediction to the nearest integer
-    df_compare['iaqi_category_co2_pred'] = df_compare['iaqi_category_co2_pred'].apply(lambda x: round(x))
+    df_compare['iaqi_category_pred'] = df_compare['iaqi_category_pred'].apply(lambda x: round(x))
 
     st.dataframe(df_compare)
 
     # Give an expected and not expected column in dataframe
-    df_compare['expected'] = df_compare['iaqi_category_co2'] == df_compare['iaqi_category_co2_pred']
+    df_compare['expected'] = df_compare['iaqi_category'] == df_compare['iaqi_category_pred']
 
     st.dataframe(df_compare)
 
@@ -732,18 +740,18 @@ def data_sensor():
 
     # Ubah iaqi_category_co2 menjadi katregori ketika -1 adalah hazardous, 0 adalah moderate dan 1 adalah good
 
-    df_transform['iaqi_category_co2'] = df_transform['iaqi_category_co2'].apply(
-        lambda x: "hazardous" if x == -1 else "moderate" if x == 0 else "good")
+    df_transform[y_feature] = df_transform[y_feature].apply(
+        lambda x: "hazardous" if x == 3 else "moderate" if x == 2 else "good")
 
-    st.write("Distribusi Kategori CO2")
+    st.write("Distribusi Kategori")
 
-    fig = px.histogram(df_transform, x="iaqi_category_co2", title="Distribusi Kategori CO2")
+    fig = px.histogram(df_transform, x=y_feature, title="Distribusi Kategori")
 
     st.plotly_chart(fig)
 
     st.write("Line Plot Timeseries CO2")
 
-    fig = px.line(df_transform, y="iaqi_co2", color="iaqi_category_co2", title="Line Plot Timeseries CO2")
+    fig = px.line(df_transform, y=feature, color="iaqi_category_co2", title="Line Plot Timeseries CO2")
 
     st.plotly_chart(fig)
 
