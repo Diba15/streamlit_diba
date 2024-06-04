@@ -11,11 +11,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 from firebase_admin import db
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from keras.layers import Dense, LSTM, BatchNormalization
+from keras.layers import Dense, LSTM, BatchNormalization, Bidirectional, Dropout
 from keras.models import Sequential
 from keras.optimizers import Adam
 from keras.regularizers import l2
 from keras.utils import to_categorical
+from matplotlib.ticker import FormatStrFormatter
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -607,14 +608,17 @@ def data_sensor():
     y = to_categorical(y)
     num_classes = y.shape[1]
 
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=True)
+    # Fungsi Data Augmentation
+    def augment_data(X, noise_level=0.01):
+        noise = np.random.normal(loc=0, scale=noise_level, size=X.shape)
+        return X + noise
 
-    #
-    # y_train = y_train[:, 1:]
-    # y_val = y_val[:, 1:]
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=True)
 
     X_train = np.expand_dims(X_train, 1)
     X_val = np.expand_dims(X_val, 1)
+
+    X_augment = augment_data(X_train)
 
     st.write("Data Training")
 
@@ -638,25 +642,22 @@ def data_sensor():
 
     st.write("Model yang digunakan adalah LSTM Classifier")
 
+    # Model Training
     model = Sequential()
     model.add(LSTM(64, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
     model.add(LSTM(64))
     model.add(Dense(num_classes, activation="softmax"))
 
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer=Adam(lr=5e-2), loss="categorical_crossentropy", metrics=["accuracy"])
 
     model.summary(print_fn=lambda x: st.text(x))
 
     # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
-    lr_decay = ReduceLROnPlateau(monitor='loss',
-                                 patience=1, verbose=0,
-                                 factor=0.5, min_lr=1e-8)
+    lr_decay = ReduceLROnPlateau(monitor='loss',patience=1,factor=0.5, min_lr=1e-8)
     # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
-    early_stop = EarlyStopping(monitor='val_acc', min_delta=0,
-                               patience=30, verbose=1, mode='auto',
-                               baseline=0, restore_best_weights=True)
+    early_stop = EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
 
-    history = model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_val, y_val),
+    history = model.fit(X_augment, y_train, epochs=100, batch_size=32, validation_data=(X_val, y_val),
                         callbacks=[lr_decay, early_stop])
 
     st.write("Model Training Selesai")
@@ -711,6 +712,8 @@ def data_sensor():
 
     y_pred = model.predict(random_data)
 
+    st.write(y_pred)
+
     y_pred = np.argmax(y_pred, axis=1)
 
     actual = np.argmax(y_val, axis=1)
@@ -723,6 +726,34 @@ def data_sensor():
     st.dataframe(comparison_df)
     accuracy = comparison_df['Correct'].mean()
     st.write(f'Validation Accuracy: {accuracy:.2%}')
+
+    # Classification Report
+    report = classification_report(actual, y_pred, target_names=["Good", "Moderate", "Hazardous",])
+    st.text(report)
+
+    # Time series plot from y_pred data per category
+
+    st.write("Plot Prediksi per Kategori")
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 5))
+    for i in range(num_classes):
+        # Delete category 0
+        if i == 0:
+            continue
+
+        if i == 1:
+            ax.plot(y_pred == i, label=f"Category {i}", color='green')
+        elif i == 2:
+            ax.plot(y_pred == i, label=f"Category {i}", color='yellow')
+        else:
+            ax.plot(y_pred == i, label=f"Category {i}", color='red')
+    ax.set_title("Prediksi Kategori CO2")
+    ax.set_xlabel("Waktu")
+    # Make xlabel 5minutes interval
+    ax.set_xticks(np.arange(0, len(y_pred), 5))
+    ax.set_ylabel("Predicted Value")
+    ax.legend(["Good", "Moderate", "Hazardous"])
+    st.pyplot(fig)
 
     # Save the model
 
