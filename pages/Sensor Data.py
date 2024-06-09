@@ -575,6 +575,22 @@ def data_sensor():
                                                                                       subset=["iaqi_category_co2",
                                                                                               "iaqi_category_tvoc"]))
 
+    # Count the number of each category of IAQI category
+
+    st.write("Jumlah Kategori IAQI CO2")
+    good = df_filtered[df_filtered["iaqi_category_co2"] == 1].shape[0]
+    moderate = df_filtered[df_filtered["iaqi_category_co2"] == 2].shape[0]
+    hazardous = df_filtered[df_filtered["iaqi_category_co2"] == 3].shape[0]
+
+    st.write(good, moderate, hazardous)
+
+    st.write("Jumlah Kategori IAQI TVOC")
+    good_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 1].shape[0]
+    moderate_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 2].shape[0]
+    hazardous_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 3].shape[0]
+
+    st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
+
     # Features Engineering
 
     st.header("Features Engineering")
@@ -705,7 +721,11 @@ def data_sensor():
                                   validation_data=(X_val_tvoc, y_val_tvoc),
                                   callbacks=[lr_decay, early_stop])
 
+    st.subheader("CO2")
+
     plot_history(history_co2)
+
+    st.subheader("TVOC")
 
     plot_history(history_tvoc)
 
@@ -738,16 +758,6 @@ def data_sensor():
 
         actual = np.argmax(actual_data, axis=1)
 
-        # Membandingkan hasil prediksi dengan label sebenarnya
-        comparison_df = pd.DataFrame({'True': actual, 'Predicted': y_pred})
-        comparison_df['Correct'] = comparison_df['Predicted'] == comparison_df['True']
-
-        # Tampilkan hasil prediksi dan akurasi
-
-        st.dataframe(comparison_df)
-        accuracy = comparison_df['Correct'].mean()
-        st.write(f'Validation Accuracy: {accuracy:.2f}')
-
         # Classification Report
         st.text(classification_report(actual, y_pred, labels=[1, 2, 3], target_names=["Good", "Moderate", "Hazardous"]))
 
@@ -775,11 +785,11 @@ def data_sensor():
         ax.legend(["Good", "Moderate", "Hazardous"])
         st.pyplot(fig)
 
-    st.write("Prediksi CO2")
+    st.subheader("Prediksi CO2")
 
     predict(model_co2, random_data_co2, y_val_co2)
 
-    st.write("Prediksi TVOC")
+    st.subheader("Prediksi TVOC")
 
     predict(model_tvoc, random_data_tvoc, y_val_tvoc)
 
