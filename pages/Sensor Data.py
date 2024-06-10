@@ -598,6 +598,56 @@ def data_sensor():
     df_transform = df_filtered.loc[:,
                    ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
+    # 75 data untuk training masing2 kategori
+
+    df_transform = df_transform.groupby("iaqi_category_co2").head(75)
+
+    df_transform = df_transform.groupby("iaqi_category_tvoc").head(75)
+
+    # hitung jumlah data yang ada di masing-masing kategori untuk cek apakah data sudah dipisah dengan benar
+    # atau belum
+
+    st.write("Jumlah Kategori IAQI CO2")
+    good = df_transform[df_transform["iaqi_category_co2"] == 1].shape[0]
+    moderate = df_transform[df_transform["iaqi_category_co2"] == 2].shape[0]
+    hazardous = df_transform[df_transform["iaqi_category_co2"] == 3].shape[0]
+
+    st.write(good, moderate, hazardous)
+
+    st.write("Jumlah Kategori IAQI TVOC")
+    good_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 1].shape[0]
+    moderate_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 2].shape[0]
+    hazardous_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 3].shape[0]
+
+    st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
+
+    # Sisa 150 data untuk data testing
+
+    df_transform_test = df_transform.groupby("iaqi_category_co2").tail(25)
+
+    # Hitung jumlah data yang ada di masing-masing kategori untuk cek apakah data sudah dipisah dengan benar
+
+    st.write("Jumlah Kategori IAQI CO2")
+
+    good = df_transform_test[df_transform_test["iaqi_category_co2"] == 1].shape[0]
+    moderate = df_transform_test[df_transform_test["iaqi_category_co2"] == 2].shape[0]
+    hazardous = df_transform_test[df_transform_test["iaqi_category_co2"] == 3].shape[0]
+
+    st.write(good, moderate, hazardous)
+
+    st.write("Jumlah Kategori IAQI TVOC")
+
+    good_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 1].shape[0]
+    moderate_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 2].shape[0]
+    hazardous_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 3].shape[0]
+
+    st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
+
+    X_test_co2 = df_transform_test[["co2", "iaqi_co2"]].values
+    X_test_tvoc = df_transform_test[["tvoc", "iaqi_tvoc"]].values
+    y_test_co2 = df_transform_test["iaqi_category_co2"].values
+    y_test_tvoc = df_transform_test["iaqi_category_tvoc"].values
+
     df_transform.fillna(method="bfill", inplace=True)
 
     st.dataframe(df_transform)
@@ -619,6 +669,8 @@ def data_sensor():
     scaler_tvoc = StandardScaler()
     X_co2 = scaler_co2.fit_transform(df_transform[feature_co2])
     X_tvoc = scaler_tvoc.fit_transform(df_transform[feature_tvoc])
+    X_test_co2 = scaler_co2.transform(X_test_co2)
+    X_test_tvoc = scaler_tvoc.transform(X_test_tvoc)
     y_co2 = df_transform[y_feature_co2]
     y_tvoc = df_transform[y_feature_tvoc]
 
@@ -626,6 +678,12 @@ def data_sensor():
 
     y_co2 = to_categorical(y_co2)
     y_tvoc = to_categorical(y_tvoc)
+    y_test_co2 = to_categorical(y_test_co2)
+    y_test_tvoc = to_categorical(y_test_tvoc)
+    y_co2 = np.delete(y_co2, 0, 1)
+    y_tvoc = np.delete(y_tvoc, 0, 1)
+    y_test_co2 = np.delete(y_test_co2, 0, 1)
+    y_test_tvoc = np.delete(y_test_tvoc, 0, 1)
     num_classes = y_co2.shape[1]
 
     # Fungsi Data Augmentation
@@ -638,12 +696,14 @@ def data_sensor():
 
     X_train_co2 = np.expand_dims(X_train_co2, 1)
     X_val_co2 = np.expand_dims(X_val_co2, 1)
+    X_test_co2 = np.expand_dims(X_test_co2, 1)
+    X_test_tvoc = np.expand_dims(X_test_tvoc, 1)
 
     X_train_tvoc = np.expand_dims(X_train_tvoc, 1)
     X_val_tvoc = np.expand_dims(X_val_tvoc, 1)
 
-    X_augment_co2 = augment_data(X_train_co2)
-    X_augment_tvoc = augment_data(X_train_tvoc)
+    X_augment_co2 = augment_data(X_train_co2, noise_level=0.005)
+    X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.005)
 
     st.write("Data Training Label")
 
@@ -660,26 +720,38 @@ def data_sensor():
     st.write("Model yang digunakan adalah LSTM Classifier")
 
     # Model Training
-    def lstm_model(batch_size, input_size):
+    def lstm_model(units, dropout, batch_size, input_size, learning_rate):
         model = Sequential()
-        model.add(LSTM(64, input_shape=(batch_size, input_size), return_sequences=True))
-        model.add(LSTM(64))
+        model.add(LSTM(units, input_shape=(batch_size, input_size), return_sequences=True))
+        model.add(Dropout(dropout))
+        model.add(LSTM(units))
+        model.add(Dropout(dropout))
         model.add(Dense(num_classes, activation="softmax"))
 
-        model.compile(optimizer=Adam(lr=5e-2), loss="categorical_crossentropy", metrics=["accuracy"])
+        model.compile(optimizer=Adam(lr=learning_rate), loss="categorical_crossentropy", metrics=["accuracy"])
 
         model.summary(print_fn=lambda x: st.text(x))
 
         return model
 
-    model_co2 = lstm_model(X_train_co2.shape[1], X_train_co2.shape[2])
+    model_co2 = lstm_model(64, 0.2, X_train_co2.shape[1], X_train_co2.shape[2], 1e-3)
 
-    model_tvoc = lstm_model(X_train_tvoc.shape[1], X_train_tvoc.shape[2])
+    model_tvoc = lstm_model(64, 0.2, X_train_tvoc.shape[1], X_train_tvoc.shape[2], 5e-2)
 
-    # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
-    lr_decay = ReduceLROnPlateau(monitor='loss', patience=1, factor=0.5, min_lr=1e-8)
-    # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
-    early_stop = EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
+    def callbacksUnits(patience_lr, min_lr, patience_es, min_delta_es):
+        # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
+        lr_decay = ReduceLROnPlateau(monitor='loss',
+                                     patience=patience_lr, verbose=1,
+                                     factor=0.5, min_lr=min_lr)
+        # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
+        early_stop = EarlyStopping(monitor='val_accuracy', min_delta=min_delta_es,
+                                   patience=patience_es, verbose=1, mode='auto',
+                                   restore_best_weights=True)
+
+        return lr_decay, early_stop
+
+    lr_decay_co2, early_stop_co2 = callbacksUnits(5, 2e-5, 20, 0.01)
+    lr_decay_tvoc, early_stop_tvoc = callbacksUnits(5, 2e-5, 30, 0.01)
 
     def plot_history(history):
         fig, ax = plt.subplots(1, 2, figsize=(20, 5))
@@ -713,13 +785,13 @@ def data_sensor():
 
     st.write("Model Evaluation")
 
-    history_co2 = model_co2.fit(X_augment_co2, y_train_co2, epochs=100, batch_size=32,
+    history_co2 = model_co2.fit(X_augment_co2, y_train_co2, epochs=100, batch_size=64,
                                 validation_data=(X_val_co2, y_val_co2),
-                                callbacks=[lr_decay, early_stop])
+                                callbacks=[lr_decay_co2, early_stop_co2])
 
-    history_tvoc = model_tvoc.fit(X_augment_tvoc, y_train_tvoc, epochs=100, batch_size=32,
+    history_tvoc = model_tvoc.fit(X_augment_tvoc, y_train_tvoc, epochs=100, batch_size=64,
                                   validation_data=(X_val_tvoc, y_val_tvoc),
-                                  callbacks=[lr_decay, early_stop])
+                                  callbacks=[lr_decay_tvoc, early_stop_tvoc])
 
     st.subheader("CO2")
 
@@ -735,22 +807,8 @@ def data_sensor():
 
     st.write("Prediksi kategori")
 
-    # Membuat data random dari data yang sudah ada
-    def create_random_data(scaler, df, feature_list, num_samples):
-        # Ambil sampel acak dari data asli
-        sampled_df = df.sample(n=num_samples, replace=True).reset_index(drop=True)
-
-        # Normalisasi fitur
-        sampled_X = scaler.transform(sampled_df[feature_list])
-        sampled_X = np.expand_dims(sampled_X, 1)
-
-        return sampled_X
-
-    random_data_co2 = create_random_data(scaler_co2, df_transform, feature_co2, num_samples=len(y_val_co2))
-    random_data_tvoc = create_random_data(scaler_tvoc, df_transform, feature_tvoc, num_samples=len(y_val_tvoc))
-
-    def predict(model, random_data, actual_data):
-        y_pred = model.predict(random_data)
+    def predict(model, test_data, actual_data):
+        y_pred = model.predict(test_data)
 
         st.write(y_pred)
 
@@ -759,7 +817,7 @@ def data_sensor():
         actual = np.argmax(actual_data, axis=1)
 
         # Classification Report
-        st.text(classification_report(actual, y_pred, labels=[1, 2, 3], target_names=["Good", "Moderate", "Hazardous"]))
+        st.text(classification_report(actual, y_pred, labels=[0, 1, 2], target_names=["Good", "Moderate", "Hazardous"]))
 
         # Time series plot from y_pred_co2 data per category
 
@@ -767,13 +825,9 @@ def data_sensor():
 
         fig, ax = plt.subplots(1, 1, figsize=(20, 5))
         for i in range(num_classes):
-            # Delete category 0
             if i == 0:
-                continue
-
-            if i == 1:
                 ax.plot(y_pred == i, label=f"Category {i}", color='green')
-            elif i == 2:
+            elif i == 1:
                 ax.plot(y_pred == i, label=f"Category {i}", color='yellow')
             else:
                 ax.plot(y_pred == i, label=f"Category {i}", color='red')
@@ -785,13 +839,27 @@ def data_sensor():
         ax.legend(["Good", "Moderate", "Hazardous"])
         st.pyplot(fig)
 
+        # Confusion Matrix
+
+        st.write("Confusion Matrix")
+
+        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+        sns.heatmap(confusion_matrix(actual, y_pred), annot=True, fmt='d', ax=ax)
+        ax.set_title("Confusion Matrix")
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
+        # Untuk xlabel dan ylabel 1 = good, 2 = moderate, 3 = hazardous
+        ax.set_xticklabels(["Good", "Moderate", "Hazardous"])
+        ax.set_yticklabels(["Good", "Moderate", "Hazardous"])
+        st.pyplot(fig)
+
     st.subheader("Prediksi CO2")
 
-    predict(model_co2, random_data_co2, y_val_co2)
+    predict(model_co2, X_test_co2, y_test_co2)
 
     st.subheader("Prediksi TVOC")
 
-    predict(model_tvoc, random_data_tvoc, y_val_tvoc)
+    predict(model_tvoc, X_test_tvoc, y_test_tvoc)
 
     # EDA
 
