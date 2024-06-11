@@ -475,7 +475,7 @@ def data_sensor():
     st.image("./image/iaqi_metric.png")
 
     #     Filter just CO2 and TVOC
-    df_filtered = df[["co2", "tvoc"]]
+    df_filtered = df[["co2", "tvoc", "temperature"]]
 
     st.dataframe(df_filtered)
 
@@ -596,7 +596,7 @@ def data_sensor():
     st.header("Features Engineering")
 
     df_transform = df_filtered.loc[:,
-                   ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+                   ["co2", "tvoc", "temperature", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
     # 75 data untuk training masing2 kategori
 
@@ -623,7 +623,7 @@ def data_sensor():
 
     # Sisa 150 data untuk data testing
 
-    df_transform_test = df_transform.groupby("iaqi_category_co2").tail(25)
+    df_transform_test = df_transform.groupby("iaqi_category_co2").tail(35)
 
     # Hitung jumlah data yang ada di masing-masing kategori untuk cek apakah data sudah dipisah dengan benar
 
@@ -702,8 +702,11 @@ def data_sensor():
     X_train_tvoc = np.expand_dims(X_train_tvoc, 1)
     X_val_tvoc = np.expand_dims(X_val_tvoc, 1)
 
-    X_augment_co2 = augment_data(X_train_co2, noise_level=0.005)
-    X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.005)
+    X_augment_co2 = augment_data(X_train_co2, noise_level=0.5)
+    X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.3)
+
+    X_test_augment_co2 = augment_data(X_test_co2, noise_level=0.3)
+    X_test_augment_tvoc = augment_data(X_test_tvoc, noise_level=0.1)
 
     st.write("Data Training Label")
 
@@ -728,15 +731,15 @@ def data_sensor():
         model.add(Dropout(dropout))
         model.add(Dense(num_classes, activation="softmax"))
 
-        model.compile(optimizer=Adam(lr=learning_rate), loss="categorical_crossentropy", metrics=["accuracy"])
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss="categorical_crossentropy", metrics=["accuracy"])
 
         model.summary(print_fn=lambda x: st.text(x))
 
         return model
 
-    model_co2 = lstm_model(64, 0.2, X_train_co2.shape[1], X_train_co2.shape[2], 1e-3)
+    model_co2 = lstm_model(64, 0.2, X_train_co2.shape[1], X_train_co2.shape[2], 0.02)
 
-    model_tvoc = lstm_model(64, 0.2, X_train_tvoc.shape[1], X_train_tvoc.shape[2], 5e-2)
+    model_tvoc = lstm_model(64, 0.2, X_train_tvoc.shape[1], X_train_tvoc.shape[2], 0.02)
 
     def callbacksUnits(patience_lr, min_lr, patience_es, min_delta_es):
         # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
@@ -750,7 +753,7 @@ def data_sensor():
 
         return lr_decay, early_stop
 
-    lr_decay_co2, early_stop_co2 = callbacksUnits(5, 2e-5, 20, 0.01)
+    lr_decay_co2, early_stop_co2 = callbacksUnits(5, 1e-3, 20, 0.01)
     lr_decay_tvoc, early_stop_tvoc = callbacksUnits(5, 2e-5, 30, 0.01)
 
     def plot_history(history):
@@ -855,11 +858,11 @@ def data_sensor():
 
     st.subheader("Prediksi CO2")
 
-    predict(model_co2, X_test_co2, y_test_co2)
+    predict(model_co2, X_test_augment_co2, y_test_co2)
 
     st.subheader("Prediksi TVOC")
 
-    predict(model_tvoc, X_test_tvoc, y_test_tvoc)
+    predict(model_tvoc, X_test_augment_tvoc, y_test_tvoc)
 
     # EDA
 
