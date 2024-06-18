@@ -1,26 +1,19 @@
-import io
-from time import time
-
 import firebase_admin
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import seaborn as sns
 import streamlit as st
 import streamlit.components.v1 as components
 from firebase_admin import db
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from keras.layers import Dense, LSTM, BatchNormalization, Bidirectional, Dropout
+from keras.layers import Dense, LSTM, Dropout
 from keras.models import Sequential
 from keras.optimizers import Adam
-from keras.regularizers import l2
 from keras.utils import to_categorical
-from matplotlib.ticker import FormatStrFormatter
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
+from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 st.set_page_config(page_title='Tugas Skripsi', layout='wide')
 
@@ -389,6 +382,118 @@ def data_sensor():
 
     # features = ["time", "temperature", "tvoc", "hcho", "co2"]
 
+    with st.expander("Daftar Isi"):
+        st.markdown("[Skenario](#scenario-pengambilan-data-sensor)")
+        st.markdown("[Read Data From Firebase](#read-data-from-firebase)")
+        st.markdown("[Data Summary](#data-summary)")
+        st.markdown("[Data Missing Value](#data-missing-value)")
+        st.markdown("[Correlation Matrix](#correlation-matrix)")
+        st.markdown("[Filtered Data](#filtered-data)")
+        st.markdown("[IAQI Calculation](#iaqi-calculation)")
+        st.markdown("[Features Engineering](#features-engineering)")
+        st.markdown("[Data Preprocessing](#data-preprocessing)")
+        st.markdown("[Model Training](#model-training)")
+        st.markdown("[Model Evaluation](#model-evaluation)")
+        st.markdown("[Prediction](#prediction)")
+        st.markdown("[Exploratory Data Analysis](#eda)")
+
+    st.header("Scenario Penelitian")
+
+    table_html = """
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+        <table class="table table-striped text-center table-dark">
+            <thead>
+                <tr>
+                    <th scope='col'>#</th>
+                    <th scope='col'>Good</th>
+                    <th scope='col'>Moderate</th>
+                    <th scope='col'>Hazardous</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope='row'>1</th>
+                    <td colspan='3'>Menyalakan sensor dengan menghubungkan nya dengan USB atau kepala charger.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>2</th>
+                    <td colspan='3'>Menghubungkan sensor pada perangkat laptop/mobile menggunakan bluetooth</td>
+                </tr>
+                <tr>
+                    <th scope='row'>3</th>
+                    <td>Menempatkan sensor pada ruangan ber-AC dengan suhu 21 derajat celcius dan ruangan dengan saluran udara yang baik</td>
+                    <td>Menempatkan sensor pada ruangan dan menyemprotkan parfum secara berkala.</td>
+                    <td>Menempatkan sensor pada sebuah ruangan yang sudah di semprotkan racun nyamuk.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>4</th>
+                    <td colspan='3'>Mengambil data sensor menggunakan aplikasi web yang sudah dibuat/disediakan</td>
+                </tr>
+                <tr>
+                    <th scope='row'>5</th>
+                    <td colspan='3'>Memasukkan data yang sudah diambil kedalam database NoSQL Firebase</td>
+                </tr>
+                <tr>
+                    <th scope='row'>6</th>
+                    <td colspan='3'>Membuat correlation matrix untuk melihat keterkaitan antar fitur.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>7</th>
+                    <td colspan='3'>Featuring Engineer untuk menentukan data yang akan digunakan untuk menghitung skor IAQI.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>8</th>
+                    <td colspan='3'>Menghitung skor IAQI menggunakan rumus yang sudah ada.</td>
+                </tr
+                <tr>
+                    <th scope='row'>9</th>
+                    <td colspan='3'>Membuat kategori IAQI pada data IAQI yang sudah dihitung.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>10</th>
+                    <td>Skor <span class='fw-bold'>0-50</span> merupakan skor untuk mendapatkan IAQI kategori Good.</td>
+                    <td>Skor <span class='fw-bold'>50-100</span> merupakan skor untuk mendapatkan IAQI kategori Moderate.</td>
+                    <td><span class='fw-bold'>Skor > 100</span> merupakan skor untuk mendapatkan IAQI kategori Hazardous.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>11</th>
+                    <td colspan='3'>Melakukan splitting data untuk data training, validasi data dan data testing.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>12</th>
+                    <td colspan='3'>Melakukan One-Hot Encoding pada target kategori.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>13</th>
+                    <td colspan='3'>Membuat model menggunakan metode LSTM.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>14</th>
+                    <td colspan='3'>Melakukan training model menggunakan data training.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>15</th>
+                    <td colspan='3'>Melakukan validasi model menggunakan data validasi.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>16</th>
+                    <td colspan='3'>Membuat visualisasi validasi data untuk melihat akurasi dan loss yang didapatkan.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>17</th>
+                    <td colspan='3'>Melakukan testing model menggunakan data testing.</td>
+                </tr>
+                <tr>
+                    <th scope='row'>18</th>
+                    <td colspan='3'>Membuat visualisasi testing data menggunakan time series dan confusion matrix.</td>
+                </tr>
+            </tbody>
+        </table>
+    """
+
+    st.markdown(table_html, unsafe_allow_html=True)
+
     st.title("Read Data from Firebase")
 
     option = st.selectbox("Select Room", list(data_ref.keys()))
@@ -437,26 +542,6 @@ def data_sensor():
     #
     st.write(df.corr())
 
-    st.header("Data Visualization")
-
-    st.line_chart(df[["temperature", "tvoc", "hcho", "co2"]])
-
-    st.bar_chart(df[["temperature", "tvoc", "hcho", "co2"]])
-
-    st.area_chart(df[["temperature", "tvoc", "hcho", "co2"]])
-
-    st.subheader("Time Series Visualization")
-
-    plt.style.use('fivethirtyeight')
-    df.plot(subplots=True,
-            layout=(6, 3),
-            figsize=(22, 22),
-            fontsize=10,
-            linewidth=2,
-            sharex=False,
-            title='Visualization of the original Time Series')
-
-    st.pyplot(plt.gcf())
     st.subheader("Correlation Matrix")
 
     corr_matrix = df.corr(method='spearman')
@@ -596,7 +681,7 @@ def data_sensor():
     st.header("Features Engineering")
 
     df_transform = df_filtered.loc[:,
-                   ["co2", "tvoc", "temperature", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+                   ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
     # 75 data untuk training masing2 kategori
 
@@ -718,7 +803,7 @@ def data_sensor():
 
     # Model Training
 
-    st.header("Model Training")
+    st.header("Model Training", anchor="model-training")
 
     st.write("Model yang digunakan adalah LSTM Classifier")
 
@@ -786,7 +871,7 @@ def data_sensor():
 
     st.write("Model Training Selesai")
 
-    st.write("Model Evaluation")
+    st.header("Model Evaluation", anchor="model-evaluation")
 
     history_co2 = model_co2.fit(X_augment_co2, y_train_co2, epochs=100, batch_size=64,
                                 validation_data=(X_val_co2, y_val_co2),
@@ -806,7 +891,7 @@ def data_sensor():
 
     # Prediction
 
-    st.header("Prediction")
+    st.header("Prediction", anchor="prediction")
 
     st.write("Prediksi kategori")
 
@@ -815,31 +900,32 @@ def data_sensor():
 
         st.write(y_pred)
 
-        y_pred = np.argmax(y_pred, axis=1)
+        y_pred_cate = np.argmax(y_pred, axis=1)
 
         actual = np.argmax(actual_data, axis=1)
 
+        st.write(y_pred.shape)
+
         # Classification Report
-        st.text(classification_report(actual, y_pred, labels=[0, 1, 2], target_names=["Good", "Moderate", "Hazardous"]))
+        st.text(classification_report(actual, y_pred_cate, labels=[0, 1, 2], target_names=["Good", "Moderate", "Hazardous"]))
 
         # Time series plot from y_pred_co2 data per category
 
         st.write("Plot Prediksi per Kategori")
 
         fig, ax = plt.subplots(1, 1, figsize=(20, 5))
-        for i in range(num_classes):
-            if i == 0:
-                ax.plot(y_pred == i, label=f"Category {i}", color='green')
-            elif i == 1:
-                ax.plot(y_pred == i, label=f"Category {i}", color='yellow')
-            else:
-                ax.plot(y_pred == i, label=f"Category {i}", color='red')
+        colors = ['green', 'yellow', 'red']
+        labels = ["Good", "Moderate", "Hazardous"]
+
+        for i in range(y_pred.shape[1]):
+            ax.plot(y_pred[:, i], label=f"Category {i}", color=colors[i])
+
         ax.set_title("Prediksi Kategori per Waktu")
         ax.set_xlabel("Waktu")
         # X label 5minutes interval
         ax.set_xticks(np.arange(0, len(y_pred), 5))
         ax.set_ylabel("Predicted Value")
-        ax.legend(["Good", "Moderate", "Hazardous"])
+        ax.legend(labels)
         st.pyplot(fig)
 
         # Confusion Matrix
@@ -847,7 +933,7 @@ def data_sensor():
         st.write("Confusion Matrix")
 
         fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-        sns.heatmap(confusion_matrix(actual, y_pred), annot=True, fmt='d', ax=ax)
+        sns.heatmap(confusion_matrix(actual, y_pred_cate), annot=True, fmt='d', ax=ax)
         ax.set_title("Confusion Matrix")
         ax.set_xlabel("Predicted")
         ax.set_ylabel("Actual")
@@ -866,7 +952,7 @@ def data_sensor():
 
     # EDA
 
-    st.header("Exploratory Data Analysis")
+    st.header("Exploratory Data Analysis", anchor="eda")
 
     st.write("Count CO2 per Category bar plot")
 
