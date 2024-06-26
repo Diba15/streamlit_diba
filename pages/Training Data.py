@@ -16,6 +16,8 @@ from sklearn.preprocessing import StandardScaler
 
 st.set_page_config(page_title='Training Data', layout='wide')
 
+st.title("Data Training")
+
 cred_obj = firebase_admin.credentials.Certificate('test-py-37ef5-firebase-adminsdk-guf7y-092601c707.json')
 # default_app = firebase_admin.initialize_app(cred_obj, {
 #     'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
@@ -33,6 +35,10 @@ ref = db.reference("/data")
 data_ref = ref.get()
 
 # features = ["time", "temperature", "tvoc", "hcho", "co2"]
+
+st.subheader("Pilih Data Ruangan")
+
+option = st.selectbox("Select Room", list(data_ref.keys()))
 
 with st.expander("Daftar Isi"):
     st.markdown("[Skenario](#scenario-pengambilan-data-sensor)")
@@ -147,8 +153,6 @@ table_html = """
 st.markdown(table_html, unsafe_allow_html=True)
 
 st.title("Read Data from Firebase")
-
-option = st.selectbox("Select Room", list(data_ref.keys()))
 
 ref = db.reference("/data/" + option + "/")
 
