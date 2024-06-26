@@ -222,18 +222,6 @@ st.write(y_tvoc)
 x_co2 = np.expand_dims(x_co2, 1)
 x_tvoc = np.expand_dims(x_tvoc, 1)
 
-
-# Fungsi Data Augmentation
-def augment_data(X, noise_level=0.01):
-    noise = np.random.normal(loc=0, scale=noise_level, size=X.shape)
-    return X + noise
-
-
-# Data Augmentation
-
-x_co2 = augment_data(x_co2, noise_level=0.3)
-x_tvoc = augment_data(x_tvoc, noise_level=0.1)
-
 # Load h5 Model
 
 model_co2 = load_model("model_co2.h5")
