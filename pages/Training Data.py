@@ -7,7 +7,7 @@ import streamlit as st
 from firebase_admin import db
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from keras.layers import Dense, LSTM, Dropout
-from keras.models import Sequential
+from keras.models import Sequential, save_model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from sklearn.metrics import confusion_matrix, classification_report
@@ -439,6 +439,7 @@ num_classes = y_co2.shape[1]
 
 # Fungsi Data Augmentation
 def augment_data(X, noise_level=0.01):
+    noise_level = abs(noise_level)
     noise = np.random.normal(loc=0, scale=noise_level, size=X.shape)
     return X + noise
 
@@ -454,11 +455,11 @@ X_test_tvoc = np.expand_dims(X_test_tvoc, 1)
 X_train_tvoc = np.expand_dims(X_train_tvoc, 1)
 X_val_tvoc = np.expand_dims(X_val_tvoc, 1)
 
-X_augment_co2 = augment_data(X_train_co2, noise_level=0.5)
-X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.3)
+X_augment_co2 = augment_data(X_train_co2, noise_level=0.01 * np.mean(X_train_co2))
+X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.01 * np.mean(X_train_tvoc))
 
-X_test_augment_co2 = augment_data(X_test_co2, noise_level=0.3)
-X_test_augment_tvoc = augment_data(X_test_tvoc, noise_level=0.1)
+X_test_augment_co2 = augment_data(X_test_co2, noise_level=0.01 * np.mean(X_test_co2))
+X_test_augment_tvoc = augment_data(X_test_tvoc, noise_level=0.01 * np.mean(X_test_tvoc))
 
 st.write("Data Training Label")
 
@@ -657,7 +658,7 @@ st.pyplot(fig)
 
 # Save the model
 
-model_co2.save("model_co2.h5")
-model_tvoc.save("model_tvoc.h5")
+save_model(model_co2, "model_co2.h5")
+save_model(model_tvoc, "model_tvoc.h5")
 
 print("Model Saved")
