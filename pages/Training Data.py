@@ -1,18 +1,21 @@
 import firebase_admin
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
 from firebase_admin import db
+from keras import Input
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from keras.layers import Dense, LSTM, Dropout
+from keras.layers import Dense, LSTM, Dropout, BatchNormalization
 from keras.models import Sequential, save_model
 from keras.optimizers import Adam
+from keras.regularizers import l1, l2, l1_l2
 from keras.utils import to_categorical
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 st.set_page_config(page_title='Training Data', layout='wide')
 
@@ -297,11 +300,11 @@ df_filtered["iaqi_co2"], df_filtered["iaqi_tvoc"] = zip(
 
 def iaqi_category(iaqi):
     if 0 <= iaqi <= 50:
-        return 1
+        return 0
     elif 51 <= iaqi <= 100:
-        return 2
+        return 1
     else:
-        return 3
+        return 2
 
 
 df_filtered["iaqi_category_co2"] = df_filtered["iaqi_co2"].apply(iaqi_category)
@@ -348,15 +351,6 @@ st.header("Features Engineering")
 df_transform = df_filtered.loc[:,
                ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
 
-# 75 data untuk training masing2 kategori
-
-df_transform = df_transform.groupby("iaqi_category_co2").head(75)
-
-df_transform = df_transform.groupby("iaqi_category_tvoc").head(75)
-
-# hitung jumlah data yang ada di masing-masing kategori untuk cek apakah data sudah dipisah dengan benar
-# atau belum
-
 st.write("Jumlah Kategori IAQI CO2")
 good = df_transform[df_transform["iaqi_category_co2"] == 1].shape[0]
 moderate = df_transform[df_transform["iaqi_category_co2"] == 2].shape[0]
@@ -370,33 +364,6 @@ moderate_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 2].shape[0]
 hazardous_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 3].shape[0]
 
 st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
-
-# Sisa 150 data untuk data testing
-
-df_transform_test = df_transform.groupby("iaqi_category_co2").tail(35)
-
-# Hitung jumlah data yang ada di masing-masing kategori untuk cek apakah data sudah dipisah dengan benar
-
-st.write("Jumlah Kategori IAQI CO2")
-
-good = df_transform_test[df_transform_test["iaqi_category_co2"] == 1].shape[0]
-moderate = df_transform_test[df_transform_test["iaqi_category_co2"] == 2].shape[0]
-hazardous = df_transform_test[df_transform_test["iaqi_category_co2"] == 3].shape[0]
-
-st.write(good, moderate, hazardous)
-
-st.write("Jumlah Kategori IAQI TVOC")
-
-good_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 1].shape[0]
-moderate_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 2].shape[0]
-hazardous_tvoc = df_transform_test[df_transform_test["iaqi_category_tvoc"] == 3].shape[0]
-
-st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
-
-X_test_co2 = df_transform_test[["co2", "iaqi_co2"]].values
-X_test_tvoc = df_transform_test[["tvoc", "iaqi_tvoc"]].values
-y_test_co2 = df_transform_test["iaqi_category_co2"].values
-y_test_tvoc = df_transform_test["iaqi_category_tvoc"].values
 
 df_transform.fillna(method="bfill", inplace=True)
 
@@ -413,28 +380,18 @@ y_feature_tvoc = "iaqi_category_tvoc"
 
 st.write("Pembagian Data Training dan Data Testing")
 
-# Normalisasi Data
-
-scaler_co2 = StandardScaler()
-scaler_tvoc = StandardScaler()
-X_co2 = scaler_co2.fit_transform(df_transform[feature_co2])
-X_tvoc = scaler_tvoc.fit_transform(df_transform[feature_tvoc])
-X_test_co2 = scaler_co2.transform(X_test_co2)
-X_test_tvoc = scaler_tvoc.transform(X_test_tvoc)
+X_co2 = df_transform[feature_co2].values
+X_tvoc = df_transform[feature_tvoc].values
 y_co2 = df_transform[y_feature_co2]
 y_tvoc = df_transform[y_feature_tvoc]
 
 # One Hot Encoding
 
-y_co2 = to_categorical(y_co2)
-y_tvoc = to_categorical(y_tvoc)
-y_test_co2 = to_categorical(y_test_co2)
-y_test_tvoc = to_categorical(y_test_tvoc)
-y_co2 = np.delete(y_co2, 0, 1)
-y_tvoc = np.delete(y_tvoc, 0, 1)
-y_test_co2 = np.delete(y_test_co2, 0, 1)
-y_test_tvoc = np.delete(y_test_tvoc, 0, 1)
-num_classes = y_co2.shape[1]
+st.write(np.unique(y_co2))
+st.write(np.unique(y_tvoc))
+
+y_co2 = to_categorical(y_co2, num_classes=3)
+y_tvoc = to_categorical(y_tvoc, num_classes=3)
 
 
 # Fungsi Data Augmentation
@@ -444,22 +401,31 @@ def augment_data(X, noise_level=0.01):
     return X + noise
 
 
-X_train_co2, X_val_co2, y_train_co2, y_val_co2 = train_test_split(X_co2, y_co2, test_size=0.2, shuffle=True)
-X_train_tvoc, X_val_tvoc, y_train_tvoc, y_val_tvoc = train_test_split(X_tvoc, y_tvoc, test_size=0.2, shuffle=True)
+# Augment Data
+X_augment_co2 = augment_data(X_co2)
+X_augment_tvoc = augment_data(X_tvoc)
+
+# Splitting Data
+X_train_co2, X_val_co2, y_train_co2, y_val_co2 = train_test_split(X_co2, y_co2, test_size=0.3, stratify=y_co2)
+X_train_tvoc, X_val_tvoc, y_train_tvoc, y_val_tvoc = train_test_split(X_tvoc, y_tvoc, test_size=0.3, stratify=y_tvoc)
+
+# Normalisasi Data
+scaler_co2 = MinMaxScaler()
+X_train_co2 = scaler_co2.fit_transform(X_train_co2)
+X_val_co2 = scaler_co2.transform(X_val_co2)
+
+scaler_tvoc = MinMaxScaler()
+X_train_tvoc = scaler_tvoc.fit_transform(X_train_tvoc)
+X_val_tvoc = scaler_tvoc.transform(X_val_tvoc)
+
+joblib.dump(scaler_co2, "scaler_co2.pkl")
+joblib.dump(scaler_tvoc, "scaler_tvoc.pkl")
 
 X_train_co2 = np.expand_dims(X_train_co2, 1)
 X_val_co2 = np.expand_dims(X_val_co2, 1)
-X_test_co2 = np.expand_dims(X_test_co2, 1)
-X_test_tvoc = np.expand_dims(X_test_tvoc, 1)
 
 X_train_tvoc = np.expand_dims(X_train_tvoc, 1)
 X_val_tvoc = np.expand_dims(X_val_tvoc, 1)
-
-X_augment_co2 = augment_data(X_train_co2, noise_level=0.01 * np.mean(X_train_co2))
-X_augment_tvoc = augment_data(X_train_tvoc, noise_level=0.01 * np.mean(X_train_tvoc))
-
-X_test_augment_co2 = augment_data(X_test_co2, noise_level=0.01 * np.mean(X_test_co2))
-X_test_augment_tvoc = augment_data(X_test_tvoc, noise_level=0.01 * np.mean(X_test_tvoc))
 
 st.write("Data Training Label")
 
@@ -477,13 +443,20 @@ st.write("Model yang digunakan adalah LSTM Classifier")
 
 
 # Model Training
-def lstm_model(units, dropout, batch_size, input_size, learning_rate):
+def lstm_model(units, dropout, input_shape, learning_rate, rdp):
     model = Sequential()
-    model.add(LSTM(units, input_shape=(batch_size, input_size), return_sequences=True))
-    model.add(Dropout(dropout))
-    model.add(LSTM(units))
-    model.add(Dropout(dropout))
-    model.add(Dense(num_classes, activation="softmax"))
+
+    model.add(Input(shape=input_shape))
+    model.add(LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
+                   return_state=False,
+                   stateful=False, unroll=False))
+    model.add(LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
+                   return_state=False,
+                   stateful=False, unroll=False))
+    model.add(LSTM(units, return_sequences=False, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
+                   return_state=False,
+                   stateful=False, unroll=False))
+    model.add(Dense(3, activation="softmax"))
 
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="categorical_crossentropy",
                   metrics=["accuracy"])
@@ -493,9 +466,18 @@ def lstm_model(units, dropout, batch_size, input_size, learning_rate):
     return model
 
 
-model_co2 = lstm_model(64, 0.2, X_train_co2.shape[1], X_train_co2.shape[2], 0.02)
+st.write(X_train_co2.shape)
+st.write(X_train_tvoc.shape)
 
-model_tvoc = lstm_model(64, 0.2, X_train_tvoc.shape[1], X_train_tvoc.shape[2], 0.02)
+input_co2 = (X_train_co2.shape[1], X_train_co2.shape[2])
+input_tvoc = (X_train_tvoc.shape[1], X_train_tvoc.shape[2])
+
+st.write(input_co2)
+st.write(input_tvoc)
+
+model_co2 = lstm_model(32, 0.2, input_co2, 0.001, 0.2)
+
+model_tvoc = lstm_model(32, 0.2, input_tvoc, 0.002, 0.2)
 
 
 def callbacksUnits(patience_lr, min_lr, patience_es, min_delta_es):
@@ -548,11 +530,11 @@ st.write("Model Training Selesai")
 
 st.header("Model Evaluation", anchor="model-evaluation")
 
-history_co2 = model_co2.fit(X_augment_co2, y_train_co2, epochs=100, batch_size=64,
+history_co2 = model_co2.fit(X_train_co2, y_train_co2, epochs=50, batch_size=32,
                             validation_data=(X_val_co2, y_val_co2),
                             callbacks=[lr_decay_co2, early_stop_co2])
 
-history_tvoc = model_tvoc.fit(X_augment_tvoc, y_train_tvoc, epochs=100, batch_size=64,
+history_tvoc = model_tvoc.fit(X_train_tvoc, y_train_tvoc, epochs=50, batch_size=64,
                               validation_data=(X_val_tvoc, y_val_tvoc),
                               callbacks=[lr_decay_tvoc, early_stop_tvoc])
 
@@ -566,99 +548,114 @@ plot_history(history_tvoc)
 
 # Prediction
 
-st.header("Prediction", anchor="prediction")
-
-st.write("Prediksi kategori")
-
-
-def predict(model, test_data, actual_data):
-    y_pred = model.predict(test_data)
-
-    st.write(y_pred)
-
-    y_sum = np.sum(y_pred, axis=1)
-
-    st.write(y_sum)
-
-    y_pred_cate = np.argmax(y_pred, axis=1)
-
-    actual = np.argmax(actual_data, axis=1)
-
-    st.write(y_pred.shape)
-
-    # Classification Report
-    st.text(classification_report(actual, y_pred_cate, labels=[0, 1, 2],
-                                  target_names=["Good", "Moderate", "Hazardous"]))
-
-    # Confusion Matrix
-
-    st.write("Confusion Matrix")
-
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    cm = confusion_matrix(actual, y_pred_cate)
-    cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    sns.heatmap(cmn, annot=True, fmt='.2f', ax=ax)
-    ax.set_title("Confusion Matrix")
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    # Untuk xlabel dan ylabel 1 = good, 2 = moderate, 3 = hazardous
-    ax.set_xticklabels(["Good", "Moderate", "Hazardous"])
-    ax.set_yticklabels(["Good", "Moderate", "Hazardous"])
-    st.pyplot(fig)
-
-    # Time series plot
-
-    st.write("Plot Prediksi per Kategori")
-
-    fig, ax = plt.subplots(1, 1, figsize=(20, 5))
-    colors = ['green', 'yellow', 'red']
-    labels = ["Good", "Moderate", "Hazardous"]
-
-    for i in range(y_pred.shape[1]):
-        ax.plot(y_pred[:, i], label=f"Category {i}", color=colors[i])
-
-    ax.set_title("Prediksi Kategori per Waktu")
-    ax.set_xlabel("Waktu")
-    # X label 5minutes interval
-    ax.set_xticks(np.arange(0, len(y_pred), 5))
-    ax.set_ylabel("Predicted Value")
-    ax.legend(labels)
-    st.pyplot(fig)
-
-
-st.subheader("Prediksi CO2")
-
-predict(model_co2, X_test_augment_co2, y_test_co2)
-
-st.subheader("Prediksi TVOC")
-
-predict(model_tvoc, X_test_augment_tvoc, y_test_tvoc)
-
-# EDA
-
-st.header("Exploratory Data Analysis", anchor="eda")
-
-st.write("Count CO2 per Category bar plot")
-
-fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-sns.countplot(x='iaqi_category_co2', data=df_transform, ax=ax)
-ax.set_title("Count CO2 per Category")
-ax.set_xlabel("Category")
-ax.set_ylabel("Count")
-st.pyplot(fig)
-
-st.write("Count TVOC per Category bar plot")
-
-fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-sns.countplot(x='iaqi_category_tvoc', data=df_transform, ax=ax)
-ax.set_title("Count TVOC per Category")
-ax.set_xlabel("Category")
-ax.set_ylabel("Count")
-st.pyplot(fig)
+# st.header("Prediction", anchor="prediction")
+#
+# st.write("Prediksi kategori")
+#
+# def predict_prob(number):
+#     return [number[0], 1 - number[0]]
+#
+# def predict(model, test_data, actual_data):
+#     y_pred = model.predict(test_data)
+#     y_pred_proba = np.array(list(map(predict_prob, y_pred)))
+#
+#     st.write(y_pred)
+#
+#     st.write(y_pred_proba)
+#
+#     y_sum = np.sum(y_pred, axis=1)
+#
+#     st.write(y_sum)
+#
+#     y_pred_cate = np.argmax(y_pred, axis=1)
+#
+#     actual = np.argmax(actual_data, axis=1)
+#
+#     st.write(y_pred.shape)
+#
+#     # Threshold
+#     threshold = 0.7
+#     y_pred_classes = (y_pred_proba > threshold).astype(int)
+#
+#     # Confidence Estimation
+#     for i in range(len(y_pred_proba)):
+#         print(f"Sample {i}: Class={y_pred_classes[i]}, Probability={y_pred_proba[i]}")
+#
+#     # Classification Report
+#     st.text(classification_report(actual, y_pred_cate, labels=[0, 1, 2],
+#                                   target_names=["Good", "Moderate", "Hazardous"]))
+#
+#     # Confusion Matrix
+#
+#     st.write("Confusion Matrix")
+#
+#     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+#     cm = confusion_matrix(actual, y_pred_cate)
+#     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+#     sns.heatmap(cmn, annot=True, fmt='.2f', ax=ax)
+#     ax.set_title("Confusion Matrix")
+#     ax.set_xlabel("Predicted")
+#     ax.set_ylabel("Actual")
+#     # Untuk xlabel dan ylabel 1 = good, 2 = moderate, 3 = hazardous
+#     ax.set_xticklabels(["Good", "Moderate", "Hazardous"])
+#     ax.set_yticklabels(["Good", "Moderate", "Hazardous"])
+#     st.pyplot(fig)
+#
+#     # Time series plot
+#
+#     st.write("Plot Prediksi per Kategori")
+#
+#     fig, ax = plt.subplots(1, 1, figsize=(20, 5))
+#     colors = ['green', 'yellow', 'red']
+#     labels = ["Good", "Moderate", "Hazardous"]
+#
+#     for i in range(y_pred.shape[1]):
+#         ax.plot(y_pred[:, i], label=f"Category {i}", color=colors[i])
+#
+#     ax.set_title("Prediksi Kategori per Waktu")
+#     ax.set_xlabel("Waktu")
+#     # X label 5minutes interval
+#     ax.set_xticks(np.arange(0, len(y_pred), 5))
+#     ax.set_ylabel("Predicted Value")
+#     ax.legend(labels)
+#     st.pyplot(fig)
+#
+#
+# st.subheader("Prediksi CO2")
+#
+# predict(model_co2, X_test_augment_co2, y_test_co2)
+#
+# st.subheader("Prediksi TVOC")
+#
+# predict(model_tvoc, X_test_augment_tvoc, y_test_tvoc)
+#
+# # EDA
+#
+# st.header("Exploratory Data Analysis", anchor="eda")
+#
+# st.write("Count CO2 per Category bar plot")
+#
+# fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+# sns.countplot(x='iaqi_category_co2', data=df_transform, ax=ax)
+# ax.set_title("Count CO2 per Category")
+# ax.set_xlabel("Category")
+# ax.set_ylabel("Count")
+# st.pyplot(fig)
+#
+# st.write("Count TVOC per Category bar plot")
+#
+# fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+# sns.countplot(x='iaqi_category_tvoc', data=df_transform, ax=ax)
+# ax.set_title("Count TVOC per Category")
+# ax.set_xlabel("Category")
+# ax.set_ylabel("Count")
+# st.pyplot(fig)
 
 # Save the model
+
+st.header("Save Model", anchor="save-model")
 
 save_model(model_co2, "model_co2.h5")
 save_model(model_tvoc, "model_tvoc.h5")
 
-print("Model Saved")
+st.write("Model Saved")

@@ -1,12 +1,15 @@
 import firebase_admin
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+from tensorflow import keras
 from firebase_admin import db
 from keras.saving.saving_api import load_model
 from keras.utils import to_categorical
+from pandas import DataFrame
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler
 
@@ -37,6 +40,14 @@ option = st.selectbox("Select Room", list(data_ref.keys()))
 
 ref = db.reference("/data/" + option + "/")
 
+# refGood = db.reference("/data/GoodData/")
+# refModerate = db.reference("/data/testingData/")
+# refHazard = db.reference("/data/testHazard/")
+#
+# data_ref_good = refGood.get()
+# data_ref_moderate = refModerate.get()
+# data_ref_hazard = refHazard.get()
+
 data_ref = ref.get()
 
 
@@ -46,6 +57,12 @@ def reset_data():
 
 
 st.button("Reset Data", on_click=reset_data)
+
+# dfGood = pd.DataFrame(data_ref_good.values())
+# dfModerate = pd.DataFrame(data_ref_moderate.values())
+# dfHazard = pd.DataFrame(data_ref_hazard.values())
+#
+# df = pd.concat([dfGood, dfModerate, dfHazard])
 
 df = pd.DataFrame(data_ref.values())
 
@@ -159,11 +176,11 @@ df_filtered["iaqi_co2"], df_filtered["iaqi_tvoc"] = zip(
 
 def iaqi_category(iaqi):
     if 0 <= iaqi <= 50:
-        return 1
+        return 0
     elif 51 <= iaqi <= 100:
-        return 2
+        return 1
     else:
-        return 3
+        return 2
 
 
 df_filtered["iaqi_category_co2"] = df_filtered["iaqi_co2"].apply(iaqi_category)
@@ -171,15 +188,15 @@ df_filtered["iaqi_category_tvoc"] = df_filtered["iaqi_tvoc"].apply(iaqi_category
 
 
 def highlight_good(s):
-    return ['background-color: green' if v == 1 else '' for v in s]
+    return ['background-color: green' if v == 0 else '' for v in s]
 
 
 def highlight_moderate(s):
-    return ['background-color: yellow' if v == 2 else '' for v in s]
+    return ['background-color: yellow' if v == 1 else '' for v in s]
 
 
 def highlight_hazardous(s):
-    return ['background-color: red' if v == 3 else '' for v in s]
+    return ['background-color: red' if v == 2 else '' for v in s]
 
 
 st.dataframe(df_filtered.style.apply(highlight_good, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(
@@ -193,29 +210,22 @@ df_transform = df_filtered.loc[:,
 st.dataframe(df_transform)
 
 # Splitting Data
-
 x_co2 = df_transform[["co2", "iaqi_co2"]].values
 x_tvoc = df_transform[["tvoc", "iaqi_tvoc"]].values
 y_co2 = df_transform[["iaqi_category_co2"]].values
 y_tvoc = df_transform[["iaqi_category_tvoc"]].values
 
 # Normalisasi Data
+scaler_co2 = joblib.load("scaler_co2.pkl")
+scaler_tvoc = joblib.load("scaler_tvoc.pkl")
 
-scaler_co2 = StandardScaler()
-scaler_tvoc = StandardScaler()
-
-x_co2 = scaler_co2.fit_transform(x_co2)
-x_tvoc = scaler_tvoc.fit_transform(x_tvoc)
+x_co2 = scaler_co2.transform(x_co2)
+x_tvoc = scaler_tvoc.transform(x_tvoc)
 
 # One Hot Encoding
 
-y_co2 = to_categorical(y_co2)
-y_tvoc = to_categorical(y_tvoc)
-y_co2 = np.delete(y_co2, 0, 1)
-y_tvoc = np.delete(y_tvoc, 0, 1)
-
-st.write(y_co2)
-st.write(y_tvoc)
+y_co2 = to_categorical(y_co2, num_classes=3)
+y_tvoc = to_categorical(y_tvoc, num_classes=3)
 
 # Expand Dims
 
@@ -224,8 +234,8 @@ x_tvoc = np.expand_dims(x_tvoc, 1)
 
 # Load h5 Model
 
-model_co2 = load_model("model_co2.h5")
-model_tvoc = load_model("model_tvoc.h5")
+model_co2 = keras.models.load_model("model_co2.h5")
+model_tvoc = keras.models.load_model("model_tvoc.h5")
 
 # Evaluate Model
 
@@ -256,8 +266,8 @@ actual_tvoc_test = np.argmax(y_tvoc, axis=1)
 
 # Plot
 
-def plot(actual, prediction):
-    st.text(classification_report(actual, prediction, labels=[0, 1, 2],
+def plot(actual, prediction, labels, prediction_cate):
+    st.text(classification_report(actual, prediction_cate, labels=[0, 1, 2],
                                   target_names=["Good", "Moderate", "Hazardous"], zero_division=0))
 
     # Confusion Matrix
@@ -265,20 +275,37 @@ def plot(actual, prediction):
     st.write("Confusion Matrix")
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    cm = confusion_matrix(actual, prediction)
+    cm = confusion_matrix(actual, prediction_cate)
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    sns.heatmap(cmn, annot=True, fmt='.2f', ax=ax)
+    sns.heatmap(cmn, annot=True, fmt='.2f', ax=ax, xticklabels=labels, yticklabels=labels)
     ax.set_title("Confusion Matrix")
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
-    # Untuk xlabel dan ylabel 1 = good, 2 = moderate, 3 = hazardous
-    ax.set_xticklabels(["Good", "Moderate", "Hazardous"])
-    ax.set_yticklabels(["Good", "Moderate", "Hazardous"])
+    st.pyplot(fig)
+
+    # Time series plot
+
+    st.write("Plot Prediksi per Kategori")
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 5))
+    colors = ['green', 'yellow', 'red']
+
+    for i in range(prediction.shape[1]):
+        ax.plot(prediction[:, i], label=f"Category {i}", color=colors[i])
+
+    ax.set_title("Prediksi Kategori per Waktu")
+    ax.set_xlabel("Waktu")
+    # X label 5minutes interval
+    ax.set_xticks(np.arange(0, len(prediction), 5))
+    ax.set_ylabel("Predicted Value")
+    ax.legend(labels)
     st.pyplot(fig)
 
 
+labels = ["Good", "Moderate", "Hazardous"]
+
 st.write("CO2")
-plot(actual_co2_test, y_pred_cate_co2)
+plot(actual_co2_test, y_pred_co2, labels, y_pred_cate_co2)
 
 st.write("TVOC")
-plot(actual_tvoc_test, y_pred_cate_tvoc)
+plot(actual_tvoc_test, y_pred_tvoc, labels, y_pred_cate_tvoc)
