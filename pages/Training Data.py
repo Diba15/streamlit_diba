@@ -8,14 +8,12 @@ import streamlit as st
 from firebase_admin import db
 from keras import Input
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from keras.layers import Dense, LSTM, Dropout, BatchNormalization
+from keras.layers import Dense, LSTM, BatchNormalization, Activation
 from keras.models import Sequential, save_model
 from keras.optimizers import Adam
-from keras.regularizers import l1, l2, l1_l2
 from keras.utils import to_categorical
-from sklearn.metrics import confusion_matrix, classification_report
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.preprocessing import MinMaxScaler
 
 st.set_page_config(page_title='Training Data', layout='wide')
 
@@ -33,15 +31,7 @@ else:
         'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
     })
 
-ref = db.reference("/data")
-
-data_ref = ref.get()
-
 # features = ["time", "temperature", "tvoc", "hcho", "co2"]
-
-st.subheader("Pilih Data Ruangan")
-
-option = st.selectbox("Select Room", list(data_ref.keys()))
 
 with st.expander("Daftar Isi"):
     st.markdown("[Skenario](#scenario-pengambilan-data-sensor)")
@@ -157,19 +147,18 @@ st.markdown(table_html, unsafe_allow_html=True)
 
 st.title("Read Data from Firebase")
 
-ref = db.reference("/data/" + option + "/")
+refTraining = db.reference("/data/testData/")
+refTraining2 = db.reference("/data/Training2/")
 
-data_ref = ref.get()
+data_ref = refTraining.get()
 
-
-def reset_data():
-    #     truncate_reference_data("data")
-    ref.delete()
-
-
-st.button("Reset Data", on_click=reset_data)
+data_ref2 = refTraining2.get()
 
 df = pd.DataFrame(data_ref.values())
+
+df2 = pd.DataFrame(data_ref2.values())
+
+df = pd.concat([df, df2])
 
 pd.to_datetime(df['time']).apply(lambda x: x.date())
 
@@ -230,8 +219,8 @@ st.header("IAQI Calculation")
 
 
 def calculate_iaqi(co2, tvoc):
-    if 0 <= co2 <= 500:
-        iaqi_co2 = ((50 - 0) / (500 - 0)) * (co2 - 0) + 0
+    if 450 <= co2 <= 500:
+        iaqi_co2 = ((50 - 0) / (500 - 450)) * (co2 - 450) + 0
     elif 500 < co2 <= 1000:
         iaqi_co2 = ((100 - 51) / (1000 - 501)) * (co2 - 501) + 51
     elif 1000 < co2 <= 2000:
@@ -257,16 +246,6 @@ def calculate_iaqi(co2, tvoc):
         iaqi_tvoc = ((300 - 201) / (5.0 - 3.0)) * (tvoc - 3.0) + 201
     elif 5.0 < tvoc <= 10.0:
         iaqi_tvoc = ((400 - 301) / (10.0 - 5.0)) * (tvoc - 5.0) + 301
-    elif 10.0 < tvoc <= 20.0:
-        iaqi_tvoc = ((500 - 401) / (20.0 - 10.0)) * (tvoc - 10.0) + 401
-    elif 20.0 < tvoc <= 30.0:
-        iaqi_tvoc = ((600 - 501) / (30.0 - 20.0)) * (tvoc - 20.0) + 501
-    elif 30.0 < tvoc <= 40.0:
-        iaqi_tvoc = ((700 - 601) / (40.0 - 30.0)) * (tvoc - 30.0) + 601
-    elif 40.0 < tvoc <= 50.0:
-        iaqi_tvoc = ((800 - 701) / (50.0 - 40.0)) * (tvoc - 40.0) + 701
-    elif 50.0 < tvoc <= 100.0:
-        iaqi_tvoc = ((900 - 801) / (100.0 - 50.0)) * (tvoc - 50.0) + 801
     else:
         iaqi_tvoc = 1000
 
@@ -274,23 +253,29 @@ def calculate_iaqi(co2, tvoc):
 
 
 st.write("Rumus yang terkandung dalam fungsi calculate_iaqi adalah sebagai berikut:")
-st.latex(r'IAQI_{CO2} = \frac{I_{H} - I_{L}}{C_{H} - C_{L}} \times (CO2 - C_{L}) + I_{L}')
-st.latex(r'IAQI_{TVOC} = \frac{I_{H} - I_{L}}{C_{H} - C_{L}} \times (TVOC - C_{L}) + I_{L}')
+st.latex(r'AQI_{CO2} = \frac{I_{H} - I_{L}}{C_{H} - C_{L}} \times (CO2 - C_{L}) + I_{L}')
+st.latex(r'AQI_{TVOC} = \frac{I_{H} - I_{L}}{C_{H} - C_{L}} \times (TVOC - C_{L}) + I_{L}')
+
+st.write("Parameter yang terdapat dalam rumus di atas adalah sebagai berikut:")
+st.write("AQI = Indeks Kualitas Udara (Air Quality Index)")
+st.write("CO2 = Konsentrasi CO2 dalam udara")
+st.write("TVOC = Konsentrasi TVOC dalam udara")
+st.write("I_H = Nilai Indeks tertinggi dalam rentang konsentrasi CO2 atau TVOC")
+st.write("I_L = Nilai Indeks terendah dalam rentang konsentrasi CO2 atau TVOC")
+st.write("C_H = Konsentrasi CO2 atau TVOC tertinggi dalam rentang konsentrasi CO2 atau TVOC")
+st.write("C_L = Konsentrasi CO2 atau TVOC terendah dalam rentang konsentrasi CO2 atau TVOC")
+
+st.write(
+    "Setelah dihitung Nilai AQI akan di ambil nilai minimal dari kedua nilai AQI tersebut untuk mendapatkan nilai "
+    "IAQI dengan rumus seperti dibawah ini:")
+
+st.latex(r'IAQI = MIN(IAQI_{param})')
 
 # Reference of the formula
 st.link_button("Reference: Atmotube.com",
                "https://atmotube.com/atmocube-support/indoor-air-quality-index-iaqi#:~:text=To"
                "%20calculate%20the%20AQI%2C%20the%20EPA%20measured%20outdoor,"
                "individual%20index%20based%20on%20the%20EPA%E2%80%99s%20breakpoint%20table.")
-
-st.write("Parameter yang terdapat dalam rumus di atas adalah sebagai berikut:")
-st.write("IAQI = Indeks Kualitas Udara (Air Quality Index)")
-st.write("CO2 = Konsentrasi CO2 dalam udara")
-st.write("TVOC = Konsentrasi TVOC dalam udara")
-st.write("I_H = Nilai IAQI tertinggi dalam rentang konsentrasi CO2 atau TVOC")
-st.write("I_L = Nilai IAQI terendah dalam rentang konsentrasi CO2 atau TVOC")
-st.write("C_H = Konsentrasi CO2 atau TVOC tertinggi dalam rentang konsentrasi CO2 atau TVOC")
-st.write("C_L = Konsentrasi CO2 atau TVOC terendah dalam rentang konsentrasi CO2 atau TVOC")
 
 df_filtered["iaqi_co2"], df_filtered["iaqi_tvoc"] = zip(
     *df_filtered.apply(lambda x: calculate_iaqi(x["co2"], x["tvoc"]), axis=1))
@@ -307,63 +292,51 @@ def iaqi_category(iaqi):
         return 2
 
 
-df_filtered["iaqi_category_co2"] = df_filtered["iaqi_co2"].apply(iaqi_category)
-df_filtered["iaqi_category_tvoc"] = df_filtered["iaqi_tvoc"].apply(iaqi_category)
+# Buat kolom yang menampilkan minimal dari iaqi_co2 dan iaqi_tvoc
+df_filtered["iaqi_min"] = df_filtered[["iaqi_co2", "iaqi_tvoc"]].min(axis=1)
+
+# Tambahkan kolom yang menampilkan kategori dari nilai IAQI terendah
+df_filtered["iaqi_category"] = df_filtered["iaqi_min"].apply(iaqi_category)
 
 
 def highlight_good(s):
-    return ['background-color: green' if v == 1 else '' for v in s]
+    return ['background-color: green' if v == 0 else '' for v in s]
 
 
 def highlight_moderate(s):
-    return ['background-color: yellow' if v == 2 else '' for v in s]
+    return ['background-color: yellow' if v == 1 else '' for v in s]
 
 
 def highlight_hazardous(s):
-    return ['background-color: red' if v == 3 else '' for v in s]
+    return ['background-color: red' if v == 2 else '' for v in s]
 
 
-st.dataframe(df_filtered.style.apply(highlight_good, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(
-    highlight_moderate, subset=["iaqi_category_co2", "iaqi_category_tvoc"]).apply(highlight_hazardous,
-                                                                                  subset=["iaqi_category_co2",
-                                                                                          "iaqi_category_tvoc"]))
+st.dataframe(df_filtered.style.apply(highlight_good, subset=["iaqi_category"]).apply(
+    highlight_moderate, subset=["iaqi_category"]).apply(highlight_hazardous,
+                                                        subset=["iaqi_category"]))
 
 # Count the number of each category of IAQI category
 
-st.write("Jumlah Kategori IAQI CO2")
-good = df_filtered[df_filtered["iaqi_category_co2"] == 1].shape[0]
-moderate = df_filtered[df_filtered["iaqi_category_co2"] == 2].shape[0]
-hazardous = df_filtered[df_filtered["iaqi_category_co2"] == 3].shape[0]
+st.write("Jumlah Kategori IAQI")
+good = df_filtered[df_filtered["iaqi_category"] == 0].shape[0]
+moderate = df_filtered[df_filtered["iaqi_category"] == 1].shape[0]
+hazardous = df_filtered[df_filtered["iaqi_category"] == 2].shape[0]
 
 st.write(good, moderate, hazardous)
-
-st.write("Jumlah Kategori IAQI TVOC")
-good_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 1].shape[0]
-moderate_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 2].shape[0]
-hazardous_tvoc = df_filtered[df_filtered["iaqi_category_tvoc"] == 3].shape[0]
-
-st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
 
 # Features Engineering
 
 st.header("Features Engineering")
 
 df_transform = df_filtered.loc[:,
-               ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_category_co2", "iaqi_category_tvoc"]].copy()
+               ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_min", "iaqi_category"]].copy()
 
-st.write("Jumlah Kategori IAQI CO2")
-good = df_transform[df_transform["iaqi_category_co2"] == 1].shape[0]
-moderate = df_transform[df_transform["iaqi_category_co2"] == 2].shape[0]
-hazardous = df_transform[df_transform["iaqi_category_co2"] == 3].shape[0]
+st.write("Jumlah Kategori IAQI")
+good = df_transform[df_transform["iaqi_category"] == 0].shape[0]
+moderate = df_transform[df_transform["iaqi_category"] == 1].shape[0]
+hazardous = df_transform[df_transform["iaqi_category"] == 2].shape[0]
 
 st.write(good, moderate, hazardous)
-
-st.write("Jumlah Kategori IAQI TVOC")
-good_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 1].shape[0]
-moderate_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 2].shape[0]
-hazardous_tvoc = df_transform[df_transform["iaqi_category_tvoc"] == 3].shape[0]
-
-st.write(good_tvoc, moderate_tvoc, hazardous_tvoc)
 
 df_transform.fillna(method="bfill", inplace=True)
 
@@ -371,27 +344,20 @@ st.dataframe(df_transform)
 
 st.header("Data Preprocessing")
 
-feature_co2 = ["co2", "iaqi_co2"]
-feature_tvoc = ["tvoc", "iaqi_tvoc"]
-y_feature_co2 = "iaqi_category_co2"
-y_feature_tvoc = "iaqi_category_tvoc"
+feature = ["co2", "iaqi_co2", "tvoc", "iaqi_tvoc", "iaqi_min"]
+y_feature = "iaqi_category"
 
 # Splitting Data
 
 st.write("Pembagian Data Training dan Data Testing")
 
-X_co2 = df_transform[feature_co2].values
-X_tvoc = df_transform[feature_tvoc].values
-y_co2 = df_transform[y_feature_co2]
-y_tvoc = df_transform[y_feature_tvoc]
+X = df_transform[feature].values
+y = df_transform[y_feature]
 
 # One Hot Encoding
+st.write(np.unique(y))
 
-st.write(np.unique(y_co2))
-st.write(np.unique(y_tvoc))
-
-y_co2 = to_categorical(y_co2, num_classes=3)
-y_tvoc = to_categorical(y_tvoc, num_classes=3)
+y = to_categorical(y, num_classes=3)
 
 
 # Fungsi Data Augmentation
@@ -402,60 +368,70 @@ def augment_data(X, noise_level=0.01):
 
 
 # Augment Data
-X_augment_co2 = augment_data(X_co2)
-X_augment_tvoc = augment_data(X_tvoc)
+X_augment_co2 = augment_data(X)
 
 # Splitting Data
-X_train_co2, X_val_co2, y_train_co2, y_val_co2 = train_test_split(X_co2, y_co2, test_size=0.3, stratify=y_co2)
-X_train_tvoc, X_val_tvoc, y_train_tvoc, y_val_tvoc = train_test_split(X_tvoc, y_tvoc, test_size=0.3, stratify=y_tvoc)
+X_train, X_val, y_train, y_val = train_test_split(X_augment_co2, y, test_size=0.35, stratify=y, shuffle=True,
+                                                  random_state=42)
 
 # Normalisasi Data
-scaler_co2 = MinMaxScaler()
-X_train_co2 = scaler_co2.fit_transform(X_train_co2)
-X_val_co2 = scaler_co2.transform(X_val_co2)
+scaler = MinMaxScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
 
-scaler_tvoc = MinMaxScaler()
-X_train_tvoc = scaler_tvoc.fit_transform(X_train_tvoc)
-X_val_tvoc = scaler_tvoc.transform(X_val_tvoc)
+joblib.dump(scaler, "scaler.pkl")
 
-joblib.dump(scaler_co2, "scaler_co2.pkl")
-joblib.dump(scaler_tvoc, "scaler_tvoc.pkl")
-
-X_train_co2 = np.expand_dims(X_train_co2, 1)
-X_val_co2 = np.expand_dims(X_val_co2, 1)
-
-X_train_tvoc = np.expand_dims(X_train_tvoc, 1)
-X_val_tvoc = np.expand_dims(X_val_tvoc, 1)
+X_train = np.expand_dims(X_train, 1)
+X_val = np.expand_dims(X_val, 1)
 
 st.write("Data Training Label")
+st.write(y_train)
 
-st.write(y_train_co2)
+st.write("Data Validasi Label")
+st.write(y_val)
 
-st.write("Data Testing Label")
+# Hitung jumlah data training dan data validasi yang memiliki label 0, 1, dan 2
 
-st.write(y_val_co2)
+st.write("Jumlah Data Training")
+st.write(np.unique(np.argmax(y_train, axis=1), return_counts=True))
+
+st.write("Jumlah Data Validasi")
+st.write(np.unique(np.argmax(y_val, axis=1), return_counts=True))
 
 # Model Training
-
 st.header("Model Training", anchor="model-training")
-
 st.write("Model yang digunakan adalah LSTM Classifier")
 
 
 # Model Training
+# b = batch, dp = dropout, rdp = recurrent dropout, alpha = learning rate
+# in: b, dp, rdp, alpha
+# out: LSTM
+
+# LSTM_Model(in: b, dp, rdp, alpha; out: LSTM)
+# BEGIN
+# 1. LSTM_Input(in: input_shape; out: Input_Layer)
+# 2. FOR i = 1 to 2 DO {
+#       LSTM(in: b, dp, rdp, rs; out: LSTM_Layer)
+# }
+# 3. LSTM(in: b, dp, rdp, rs; out: LSTM_Layer)
+# 3. LSTM_Dense(in: n_output, activation; out: Output_layer)
+# 4. LSTM_Compiler(in: alpha; out: Model)
+# END
+
 def lstm_model(units, dropout, input_shape, learning_rate, rdp):
     model = Sequential()
 
     model.add(Input(shape=input_shape))
-    model.add(LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
-                   return_state=False,
+    for i in range(2):
+        model.add(LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=rdp, activation=None,
+                       return_state=False, stateful=False, unroll=False))
+        model.add(BatchNormalization())
+        model.add(Activation("tanh"))
+    model.add(LSTM(units, return_sequences=False, dropout=dropout, activation=None, return_state=False,
                    stateful=False, unroll=False))
-    model.add(LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
-                   return_state=False,
-                   stateful=False, unroll=False))
-    model.add(LSTM(units, return_sequences=False, dropout=dropout, recurrent_dropout=rdp, activation='tanh',
-                   return_state=False,
-                   stateful=False, unroll=False))
+    model.add(BatchNormalization())
+    model.add(Activation("tanh"))
     model.add(Dense(3, activation="softmax"))
 
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss="categorical_crossentropy",
@@ -466,85 +442,77 @@ def lstm_model(units, dropout, input_shape, learning_rate, rdp):
     return model
 
 
-st.write(X_train_co2.shape)
-st.write(X_train_tvoc.shape)
+st.write(X_train.shape)
 
-input_co2 = (X_train_co2.shape[1], X_train_co2.shape[2])
-input_tvoc = (X_train_tvoc.shape[1], X_train_tvoc.shape[2])
+input = (X_train.shape[1], X_train.shape[2])
 
-st.write(input_co2)
-st.write(input_tvoc)
-
-model_co2 = lstm_model(32, 0.2, input_co2, 0.001, 0.2)
-
-model_tvoc = lstm_model(32, 0.2, input_tvoc, 0.002, 0.2)
+st.write(input)
 
 
 def callbacksUnits(patience_lr, min_lr, patience_es, min_delta_es):
     # definisikan ReduceLROnPlateau untuk mengurangi learning rate jika model tidak belajar lagi.
-    lr_decay = ReduceLROnPlateau(monitor='loss',
+    lr_decay = ReduceLROnPlateau(monitor='val_accuracy',
                                  patience=patience_lr, verbose=1,
                                  factor=0.5, min_lr=min_lr)
     # definisikan EarlyStopping untuk menghentikan training jika model tidak belajar lagi.
-    early_stop = EarlyStopping(monitor='val_accuracy', min_delta=min_delta_es,
+    early_stop = EarlyStopping(monitor='val_loss', min_delta=min_delta_es,
                                patience=patience_es, verbose=1, mode='auto',
                                restore_best_weights=True)
 
     return lr_decay, early_stop
 
 
-lr_decay_co2, early_stop_co2 = callbacksUnits(5, 1e-3, 20, 0.01)
-lr_decay_tvoc, early_stop_tvoc = callbacksUnits(5, 2e-5, 30, 0.01)
-
-
 def plot_history(history):
     fig, ax = plt.subplots(1, 2, figsize=(20, 5))
 
-    ax[0].plot(history.history["accuracy"], label="Training Accuracy")
-    ax[0].plot(history.history["val_accuracy"], label="Validation Accuracy")
+    for i, histories in enumerate(history):
+        ax[0].plot(histories.history["accuracy"], label="Training Fold {}".format(i + 1))
+        ax[0].plot(histories.history["val_accuracy"], label="Validation Fold {}".format(i + 1), linestyle="--")
     ax[0].set_title("Accuracy")
     ax[0].set_xlabel("Epoch")
     ax[0].set_ylabel("Accuracy")
     ax[0].legend()
 
-    ax[1].plot(history.history["loss"], label="Training Loss")
-    ax[1].plot(history.history["val_loss"], label="Validation Loss")
+    for i, histories in enumerate(history):
+        ax[1].plot(histories.history["loss"], label="Training Fold {}".format(i + 1))
+        ax[1].plot(histories.history["val_loss"], label="Validation Fold {}".format(i + 1), linestyle="--")
     ax[1].set_title("Loss")
     ax[1].set_xlabel("Epoch")
     ax[1].legend()
 
     st.pyplot(fig)
 
-    # Training accuracy and validation accuracy in percentage
-
-    train_acc = history.history["accuracy"][-1] * 100
-
-    val_acc = history.history["val_accuracy"][-1] * 100
-
-    st.write(f"Training Accuracy: {train_acc:.2f}%")
-
-    st.write(f"Validation Accuracy: {val_acc:.2f}%")
-
 
 st.write("Model Training Selesai")
 
 st.header("Model Evaluation", anchor="model-evaluation")
 
-history_co2 = model_co2.fit(X_train_co2, y_train_co2, epochs=50, batch_size=32,
-                            validation_data=(X_val_co2, y_val_co2),
-                            callbacks=[lr_decay_co2, early_stop_co2])
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
-history_tvoc = model_tvoc.fit(X_train_tvoc, y_train_tvoc, epochs=50, batch_size=64,
-                              validation_data=(X_val_tvoc, y_val_tvoc),
-                              callbacks=[lr_decay_tvoc, early_stop_tvoc])
+all_scores = []
+scores = []
+histories = []
 
-st.subheader("CO2")
+for train_index, val_index in kf.split(X_train):
+    model = lstm_model(32, 0.2, input, 0.001, 0.2)
+    lr_decay, early_stop = callbacksUnits(5, 0.01, 20, 0.01)
 
-plot_history(history_co2)
+    history = model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=32)
+    histories.append(history)
 
-st.subheader("TVOC")
+    accuracy = history.history['accuracy'][-1]
+    val_accuracy = history.history['val_accuracy'][-1]
+    all_scores.append(val_accuracy)
+    scores.append(accuracy)
 
-plot_history(history_tvoc)
+    save_model(model, "model.h5")
+
+st.write("Average Training Accuracy: ", np.mean(scores))
+st.write("Average Validation Accuracy: ", np.mean(all_scores))
+
+# Plot Learning Curves
+
+plot_history(histories)
 
 # Prediction
 
@@ -654,8 +622,5 @@ plot_history(history_tvoc)
 # Save the model
 
 st.header("Save Model", anchor="save-model")
-
-save_model(model_co2, "model_co2.h5")
-save_model(model_tvoc, "model_tvoc.h5")
 
 st.write("Model Saved")

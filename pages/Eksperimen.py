@@ -10,9 +10,8 @@ from keras.utils import to_categorical
 from sklearn.metrics import confusion_matrix, classification_report
 from tensorflow import keras
 
-st.set_page_config(page_title='Testing Data', layout='wide')
+st.set_page_config(page_title='Eksperimen Data', layout='wide')
 
-st.title("Data Testing")
 cred_obj = firebase_admin.credentials.Certificate('test-py-37ef5-firebase-adminsdk-guf7y-092601c707.json')
 # default_app = firebase_admin.initialize_app(cred_obj, {
 #     'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
@@ -33,20 +32,19 @@ data_ref = ref.get()
 
 st.title("Read Data from Firebase")
 
-# option = st.selectbox("Select Room", list(data_ref.keys()))
+option = st.selectbox("Select Room", list(data_ref.keys()))
+
+ref = db.reference("/data/" + option + "/")
+
+# refGood = db.reference("/data/GoodData/")
+# refModerate = db.reference("/data/testingData/")
+# refHazard = db.reference("/data/testHazard/")
 #
-# ref = db.reference("/data/" + option + "/")
+# data_ref_good = refGood.get()
+# data_ref_moderate = refModerate.get()
+# data_ref_hazard = refHazard.get()
 
-refGood = db.reference("/data/GoodData/")
-refModerate = db.reference("/data/testingData/")
-refHazard = db.reference("/data/testHazard/")
-#
-data_ref_good = refGood.get()
-data_ref_moderate = refModerate.get()
-data_ref_hazard = refHazard.get()
-
-
-# data_ref = ref.get()
+data_ref = ref.get()
 
 
 def reset_data():
@@ -56,20 +54,13 @@ def reset_data():
 
 st.button("Reset Data", on_click=reset_data)
 
-dfGood = pd.DataFrame(data_ref_good.values())
-# Batas data yang diambil hanya 70 data
-# dfGood = dfGood.head(70)
-dfModerate = pd.DataFrame(data_ref_moderate.values())
-# dfModerate = dfModerate.head(70)
-dfHazard = pd.DataFrame(data_ref_hazard.values())
-# dfHazard = dfHazard.head(70)
+# dfGood = pd.DataFrame(data_ref_good.values())
+# dfModerate = pd.DataFrame(data_ref_moderate.values())
+# dfHazard = pd.DataFrame(data_ref_hazard.values())
 #
-# df = dfGood
-# df = dfModerate
-df = dfHazard
 # df = pd.concat([dfGood, dfModerate, dfHazard])
 
-# df = pd.DataFrame(data_ref.values())
+df = pd.DataFrame(data_ref.values())
 
 pd.to_datetime(df['time']).apply(lambda x: x.date())
 
@@ -218,118 +209,14 @@ st.write("Jumlah data yang masuk ke dalam kategori baik adalah", good)
 st.write("Jumlah data yang masuk ke dalam kategori sedang adalah", moderate)
 st.write("Jumlah data yang masuk ke dalam kategori berbahaya adalah", hazardous)
 
-st.write("Total data yang masuk ke dalam kategori baik, sedang, dan berbahaya adalah", good + moderate + hazardous)
-
 df_transform = df_filtered.loc[:,
                ["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_min", "iaqi_category"]].copy()
 
 st.dataframe(df_transform)
 
-# Fungsi Data Augmentation
-def augment_data(X, noise_level=0.01):
-    noise_level = abs(noise_level)
-    noise = np.random.normal(loc=0, scale=noise_level, size=X.shape)
-    return X + noise
-
 # Splitting Data
 x = df_transform[["co2", "iaqi_co2", "tvoc", "iaqi_tvoc", "iaqi_min"]].values
 y = df_transform[["iaqi_category"]].values
-
-# augmented_x = augment_data(x, noise_level=0.1)
-
-# Normalisasi Data
-scaler = joblib.load("scaler.pkl")
-
-x = scaler.transform(x)
-
-# One Hot Encoding
-
-y = to_categorical(y, num_classes=3)
-
-# Expand Dims
-
-x = np.expand_dims(x, 1)
-
-# Load h5 Model
-
-model = keras.models.load_model("model.h5")
-
-
-def predict(model, x, y):
-    # Evaluate Model
-    loss, acc = model.evaluate(x, y)
-
-    st.write("Loss: ", loss)
-    st.write("Accuracy: ", acc)
-
-    # Predict Data
-    y_pred = model.predict(x)
-
-    st.write(y_pred)
-
-    # Jumlahkan Prediksi CO2 dan TVOC perbaris nya
-    y_pred_sum = np.sum(y_pred, axis=1)
-
-    st.write(y_pred_sum)
-
-    return y_pred
-
-
-def plot(actual, prediction, labels, prediction_cate):
-    st.text(classification_report(actual, prediction_cate, labels=[0, 1, 2],
-                                  target_names=["Good", "Moderate", "Hazardous"], zero_division=0))
-
-    # Confusion Matrix
-
-    st.write("Confusion Matrix")
-
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    cm = confusion_matrix(actual, prediction_cate)
-    cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    # Balik urutan baris dan kolom untuk kategori hazardous
-    # cmn_reversed = cmn[::-1, ::-1]
-
-    sns.heatmap(cmn, annot=True, fmt='.2f', ax=ax, xticklabels=labels, yticklabels=labels)
-    ax.set_title("Confusion Matrix")
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    st.pyplot(fig)
-
-    # Time series plot
-
-    missclassification_indices = np.where(actual != prediction_cate)[0]
-    labels.append("Missclassification")
-
-    st.write("Plot Prediksi per Kategori")
-
-    fig, ax = plt.subplots(1, 1, figsize=(20, 5))
-    colors = ['green', 'yellow', 'red']
-
-    for i in range(prediction.shape[1]):
-        ax.plot(prediction[:, i], label=f"Category {i}", color=colors[i])
-
-    for idx in missclassification_indices:
-        ax.axvline(x=idx, color='black', linestyle='--',
-                   label="Missclassification" if idx == missclassification_indices[0] else "")
-
-    ax.set_title("Prediksi Kategori per Waktu")
-    ax.set_xlabel("Waktu")
-    # X label 5minutes interval
-    ax.set_xticks(np.arange(0, len(prediction), 5))
-    ax.set_ylabel("Predicted Value")
-    ax.legend(labels)
-    st.pyplot(fig)
-
-
-labels = ["Hazardous", "Moderate", "Good"]
-
-st.header("Prediction")
-y_pred = predict(model, x, y)
-
-y_pred_cate = np.argmax(y_pred, axis=1)
-actual_test = np.argmax(y, axis=1)
-
-plot(actual_test, y_pred, labels, y_pred_cate)
 
 # Eksperimen 1: Memahami Pengaruh CO2 dan TVOC terhadap IAQI
 
@@ -341,23 +228,23 @@ st.write("Pada eksperimen ini, akan dilakukan analisis terhadap pengaruh CO2 dan
 fig, ax = plt.subplots(1, 2, figsize=(20, 10))
 
 # Scatter plot CO2 terhadap IAQI
-ax[0].scatter(df_transform["co2"], df_transform["iaqi_min"], color="blue")
-ax[0].set_title("CO2 vs IAQI")
-ax[0].set_xlabel("CO2 (ppm)")
-ax[0].set_ylabel("IAQI")
+ax[0].scatter(df_transform["co2"], df_transform["iaqi_co2"], color="blue")
+ax[0].set_title("CO2 vs IAQI CO2")
+ax[0].set_xlabel("CO2")
+ax[0].set_ylabel("IAQI CO2")
 
 # Scatter plot TVOC terhadap IAQI
-ax[1].scatter(df_transform["tvoc"], df_transform["iaqi_min"], color="red")
-ax[1].set_title("TVOC vs IAQI")
-ax[1].set_xlabel("TVOC (mg/m3)")
-ax[1].set_ylabel("IAQI")
+ax[1].scatter(df_transform["tvoc"], df_transform["iaqi_tvoc"], color="red")
+ax[1].set_title("TVOC vs IAQI TVOC")
+ax[1].set_xlabel("TVOC")
+ax[1].set_ylabel("IAQI TVOC")
 
 st.pyplot(fig)
 
 # Selanjutnya akan dibuat plot correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI
 st.write("Selanjutnya akan dibuat correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI")
 
-correlation_matrix = df_transform[["co2", "tvoc", "iaqi_min"]].corr()
+correlation_matrix = df_transform[["co2", "tvoc", "iaqi_co2", "iaqi_tvoc", "iaqi_min"]].corr()
 
 st.write(correlation_matrix)
 
