@@ -325,7 +325,7 @@ def plot(actual, prediction, labels, prediction_cate):
     st.pyplot(fig)
 
 
-labels = ["Hazardous", "Moderate", "Good"]
+labels = ["Good", "Moderate", "Hazardous"]
 
 st.header("Prediction")
 y_pred = predict(model, x, y)
