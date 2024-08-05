@@ -25,28 +25,30 @@ else:
         'databaseURL': 'https://test-py-37ef5-default-rtdb.firebaseio.com'
     })
 
-ref = db.reference("/data")
+# ref = db.reference("/data")
 
-data_ref = ref.get()
+# data_ref = ref.get()
 
 # features = ["time", "temperature", "tvoc", "hcho", "co2"]
 
 st.title("Read Data from Firebase")
 
-# option = st.selectbox("Select Room", list(data_ref.keys()))
+listKey = ["GoodData", "testingData", "testHazard"]
+
+option = st.selectbox("Select Room", listKey)
 #
-# ref = db.reference("/data/" + option + "/")
+ref = db.reference("/data/" + option + "/")
 
-refGood = db.reference("/data/GoodData/")
-refModerate = db.reference("/data/testingData/")
-refHazard = db.reference("/data/testHazard/")
-#
-data_ref_good = refGood.get()
-data_ref_moderate = refModerate.get()
-data_ref_hazard = refHazard.get()
+# refGood = db.reference("/data/GoodData/")
+# refModerate = db.reference("/data/testingData/")
+# refHazard = db.reference("/data/testHazard/")
+# #
+# data_ref_good = refGood.get()
+# data_ref_moderate = refModerate.get()
+# data_ref_hazard = refHazard.get()
 
 
-# data_ref = ref.get()
+data_ref = ref.get()
 
 
 def reset_data():
@@ -56,20 +58,20 @@ def reset_data():
 
 st.button("Reset Data", on_click=reset_data)
 
-dfGood = pd.DataFrame(data_ref_good.values())
+# dfGood = pd.DataFrame(data_ref_good.values())
 # Batas data yang diambil hanya 70 data
 # dfGood = dfGood.head(70)
-dfModerate = pd.DataFrame(data_ref_moderate.values())
+# dfModerate = pd.DataFrame(data_ref_moderate.values())
 # dfModerate = dfModerate.head(70)
-dfHazard = pd.DataFrame(data_ref_hazard.values())
+# dfHazard = pd.DataFrame(data_ref_hazard.values())
 # dfHazard = dfHazard.head(70)
 #
 # df = dfGood
 # df = dfModerate
-df = dfHazard
+# df = dfHazard
 # df = pd.concat([dfGood, dfModerate, dfHazard])
 
-# df = pd.DataFrame(data_ref.values())
+df = pd.DataFrame(data_ref.values())
 
 pd.to_datetime(df['time']).apply(lambda x: x.date())
 
@@ -225,11 +227,13 @@ df_transform = df_filtered.loc[:,
 
 st.dataframe(df_transform)
 
+
 # Fungsi Data Augmentation
 def augment_data(X, noise_level=0.01):
     noise_level = abs(noise_level)
     noise = np.random.normal(loc=0, scale=noise_level, size=X.shape)
     return X + noise
+
 
 # Splitting Data
 x = df_transform[["co2", "iaqi_co2", "tvoc", "iaqi_tvoc", "iaqi_min"]].values
