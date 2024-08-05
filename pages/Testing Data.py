@@ -335,38 +335,38 @@ actual_test = np.argmax(y, axis=1)
 
 plot(actual_test, y_pred, labels, y_pred_cate)
 
-# Eksperimen 1: Memahami Pengaruh CO2 dan TVOC terhadap IAQI
-
-st.write("Eksperimen 1: Memahami Pengaruh CO2 dan TVOC terhadap IAQI")
-
-st.write("Pada eksperimen ini, akan dilakukan analisis terhadap pengaruh CO2 dan TVOC terhadap nilai IAQI. "
-         "Analisis ini dilakukan dengan menggunakan scatter plot.")
-
-fig, ax = plt.subplots(1, 2, figsize=(20, 10))
-
-# Scatter plot CO2 terhadap IAQI
-ax[0].scatter(df_transform["co2"], df_transform["iaqi_min"], color="blue")
-ax[0].set_title("CO2 vs IAQI")
-ax[0].set_xlabel("CO2 (ppm)")
-ax[0].set_ylabel("IAQI")
-
-# Scatter plot TVOC terhadap IAQI
-ax[1].scatter(df_transform["tvoc"], df_transform["iaqi_min"], color="red")
-ax[1].set_title("TVOC vs IAQI")
-ax[1].set_xlabel("TVOC (mg/m3)")
-ax[1].set_ylabel("IAQI")
-
-st.pyplot(fig)
-
-# Selanjutnya akan dibuat plot correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI
-st.write("Selanjutnya akan dibuat correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI")
-
-correlation_matrix = df_transform[["co2", "tvoc", "iaqi_min"]].corr()
-
-st.write(correlation_matrix)
-
-fig, ax = plt.subplots(figsize=(10, 10))
-
-sns.heatmap(correlation_matrix, annot=True, ax=ax)
-
-st.pyplot(fig)
+# # Eksperimen 1: Memahami Pengaruh CO2 dan TVOC terhadap IAQI
+#
+# st.write("Eksperimen 1: Memahami Pengaruh CO2 dan TVOC terhadap IAQI")
+#
+# st.write("Pada eksperimen ini, akan dilakukan analisis terhadap pengaruh CO2 dan TVOC terhadap nilai IAQI. "
+#          "Analisis ini dilakukan dengan menggunakan scatter plot.")
+#
+# fig, ax = plt.subplots(1, 2, figsize=(20, 10))
+#
+# # Scatter plot CO2 terhadap IAQI
+# ax[0].scatter(df_transform["co2"], df_transform["iaqi_min"], color="blue")
+# ax[0].set_title("CO2 vs IAQI")
+# ax[0].set_xlabel("CO2 (ppm)")
+# ax[0].set_ylabel("IAQI")
+#
+# # Scatter plot TVOC terhadap IAQI
+# ax[1].scatter(df_transform["tvoc"], df_transform["iaqi_min"], color="red")
+# ax[1].set_title("TVOC vs IAQI")
+# ax[1].set_xlabel("TVOC (mg/m3)")
+# ax[1].set_ylabel("IAQI")
+#
+# st.pyplot(fig)
+#
+# # Selanjutnya akan dibuat plot correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI
+# st.write("Selanjutnya akan dibuat correlation matrix untuk melihat hubungan antara CO2 dan TVOC terhadap IAQI")
+#
+# correlation_matrix = df_transform[["co2", "tvoc", "iaqi_min"]].corr()
+#
+# st.write(correlation_matrix)
+#
+# fig, ax = plt.subplots(figsize=(10, 10))
+#
+# sns.heatmap(correlation_matrix, annot=True, ax=ax)
+#
+# st.pyplot(fig)
