@@ -230,7 +230,7 @@ def calculate_iaqi(co2, tvoc):
     elif 5000 < co2 <= 10000:
         iaqi_co2 = ((300 - 201) / (10000 - 5001)) * (co2 - 5001) + 201
     elif 10000 < co2 <= 15000:
-        iaqi_co2 = ((400 - 301) / (15000 - 10001)) * (co2 - 10001) + 301
+        iaqi_co2 = ((500 - 301) / (15000 - 10001)) * (co2 - 10001) + 301
     else:
         iaqi_co2 = 1000
 
@@ -245,7 +245,7 @@ def calculate_iaqi(co2, tvoc):
     elif 3.0 < tvoc <= 5.0:
         iaqi_tvoc = ((300 - 201) / (5.0 - 3.0)) * (tvoc - 3.0) + 201
     elif 5.0 < tvoc <= 10.0:
-        iaqi_tvoc = ((400 - 301) / (10.0 - 5.0)) * (tvoc - 5.0) + 301
+        iaqi_tvoc = ((500 - 301) / (10.0 - 5.0)) * (tvoc - 5.0) + 301
     else:
         iaqi_tvoc = 1000
 
